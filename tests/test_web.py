@@ -162,3 +162,53 @@ def test_expired_job_returns_a_clear_message(logged_in, job):
     response = logged_in.post("/api/preview", json={**_config(job), "job_id": "inexistente"})
     assert response.status_code == 404
     assert "vencio" in response.json()["detail"]
+
+
+# --------------------------------------------------------------------------
+# Seleccion de tramos
+# --------------------------------------------------------------------------
+def test_preview_gives_every_section_a_stable_key(logged_in, job):
+    data = logged_in.post("/api/preview", json=_config(job)).json()
+    claves = [s["key"] for s in data["sections"]]
+    assert claves == ["5>6", "6>8"]
+    # La clave no cambia al repetir la consulta.
+    otra = logged_in.post("/api/preview", json=_config(job)).json()
+    assert [s["key"] for s in otra["sections"]] == claves
+
+
+def test_generating_only_the_checked_sections(logged_in, job):
+    payload = {**_config(job), "sections": ["6>8"], "start_number": 1, "condicion_texto": "Initial RS"}
+    document = Document(io.BytesIO(logged_in.post("/api/generate", json=payload).content))
+    assert len(document.tables) == 1
+    titulos = [p.text for p in document.paragraphs if p.style.name == "Caption"]
+    assert titulos == ["Tabla 1: Tramo entre las estructuras N°6 y N°8 en condición Initial RS"]
+
+
+def test_an_empty_selection_means_every_section(logged_in, job):
+    payload = {**_config(job), "sections": []}
+    document = Document(io.BytesIO(logged_in.post("/api/generate", json=payload).content))
+    assert len(document.tables) == 2
+
+
+def test_keys_that_no_longer_exist_are_rejected(logged_in, job):
+    payload = {**_config(job), "sections": ["99>100"]}
+    response = logged_in.post("/api/generate", json=payload)
+    assert response.status_code == 400
+    assert "marcados" in response.json()["detail"]
+
+
+def test_section_keys_survive_reclassifying_a_structure(logged_in, job):
+    """Marcar E5-E6 debe seguir valiendo aunque cambie el tipo de otra estructura."""
+    payload = _config(job)
+    payload["kinds"]["7"] = "anclaje"
+    data = logged_in.post("/api/preview", json=payload).json()
+    claves = [s["key"] for s in data["sections"]]
+    assert claves == ["5>6", "6>7", "7>8"]
+
+    payload["sections"] = ["5>6"]
+    payload["start_number"] = 1
+    payload["condicion_texto"] = "Initial RS"
+    document = Document(io.BytesIO(logged_in.post("/api/generate", json=payload).content))
+    assert len(document.tables) == 1
+    titulos = [p.text for p in document.paragraphs if p.style.name == "Caption"]
+    assert "N°5 y N°6" in titulos[0]

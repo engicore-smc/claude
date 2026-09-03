@@ -21,8 +21,8 @@ así que ambas producen exactamente el mismo documento.
 2. Se detectan las columnas automáticamente (tolera espacios dobles, filas de título y
    encabezados repartidos en dos filas); se puede corregir el mapeo a mano.
 3. Se elige el **conductor** (`Cable Load Vert Load (daN/m)`) y las **temperaturas**.
-4. Se revisan los **tramos**, con el tipo de cada estructura (**anclaje** / **suspensión**)
-   editable con un clic sobre ella.
+4. Se revisan los **tramos**: se marcan con una casilla los que van al anexo (por defecto todos) y
+   el tipo de cada estructura (**anclaje** / **suspensión**) se cambia con un clic sobre ella.
 5. Se genera el **.docx** con una tabla por tramo entre anclajes y su título numerado.
 
 El documento sale en **tabloide horizontal (11×17″)** para que ningún valor se parta en dos
@@ -78,6 +78,11 @@ Prioridad, de más a menos fiable:
 Si el nombre y las secciones no coinciden, manda el nombre y se avisa en la vista previa. El tipo
 de cualquier estructura se puede cambiar con un clic: marcar una intermedia como anclaje **parte**
 el tramo, y marcar un extremo como suspensión **une** los dos tramos vecinos.
+
+Cada tramo lleva una casilla para decidir si entra en el anexo. La selección se identifica por los
+extremos del tramo, no por su posición, así que cambiar el tipo de una estructura no descoloca lo
+que ya estaba marcado; los tramos que aparecen nuevos entran marcados. En el bot de Telegram se
+generan siempre todos.
 
 ### Cómo se arma cada tabla
 

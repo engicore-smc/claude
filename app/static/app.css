@@ -263,3 +263,9 @@ details.advanced > summary { cursor: pointer; font-size: 13px; color: var(--acce
 }
 .pill.anclaje { background: var(--accent-soft); color: var(--accent-strong); }
 .pill.suspension { background: #f0eaf7; color: #5b3d80; }
+
+/* ------------------------------------------------ selección de tramos */
+table.data th.pick, table.data td.pick { width: 34px; text-align: center; padding-left: 12px; }
+table.data td.pick input, table.data th.pick input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
+table.data tr.off td { opacity: .42; }
+table.data tr.off td.pick { opacity: 1; }

@@ -103,6 +103,9 @@ class Section:
     tension_kg: dict[float, float | None]
     cable_vert_load: float | None
     warnings: list[str] = field(default_factory=list)
+    # Identificador estable del tramo, para poder seleccionarlo desde la
+    # interfaz sin que dependa de su posicion en la lista.
+    key: str = ""
 
     @property
     def tramo_label(self) -> str:
@@ -568,7 +571,17 @@ def build_sections(
                 _build_section(dataset, start, middle, end, wanted, prefix, span_static, by_span_temp, cable_value)
             )
     sections.sort(key=lambda s: (_numeric_sort_key(s.from_key), _numeric_sort_key(s.to_key)))
+    _assign_keys(sections)
     return sections, warnings
+
+
+def _assign_keys(sections: list[Section]) -> None:
+    """Un identificador por tramo; se numera si dos comparten extremos."""
+    seen: dict[str, int] = {}
+    for section in sections:
+        base = f"{section.from_key}>{section.to_key}"
+        seen[base] = seen.get(base, 0) + 1
+        section.key = base if seen[base] == 1 else f"{base}#{seen[base]}"
 
 
 def _chains_for(dataset: Dataset, spans: list[tuple[str, str]], warnings: list[str]) -> list[list[str]]:

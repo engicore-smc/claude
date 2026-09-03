@@ -6,6 +6,8 @@ const state = {
   options: null,
   kinds: {},          // clave de estructura -> 'anclaje' | 'suspension'
   structures: [],     // estructuras conocidas, en orden
+  unselected: new Set(), // tramos desmarcados; los nuevos entran marcados
+  sectionKeys: [],    // claves de los tramos de la última vista previa
   temps: [],          // temperaturas disponibles
   selectedTemps: [],
 };
@@ -132,6 +134,7 @@ function applyJobPayload(payload) {
   }
   clearError();
   state.kinds = {};
+  state.unselected = new Set();
   state.structures = payload.options.structures;
   state.structures.forEach((s) => { state.kinds[s.key] = s.kind; });
   renderFilters();
@@ -318,6 +321,17 @@ function renderStructures() {
   });
 }
 
+$('#sections-all').addEventListener('click', () => { state.unselected.clear(); runPreview(); });
+$('#sections-none').addEventListener('click', () => {
+  state.sectionKeys.forEach((key) => state.unselected.add(key));
+  runPreview();
+});
+$('#sections-master').addEventListener('change', (event) => {
+  if (event.target.checked) state.unselected.clear();
+  else state.sectionKeys.forEach((key) => state.unselected.add(key));
+  runPreview();
+});
+
 $('#kinds-reset').addEventListener('click', () => {
   state.structures.forEach((s) => { state.kinds[s.key] = s.auto_kind; });
   renderStructures();
@@ -333,6 +347,10 @@ function configPayload() {
     kinds: state.kinds,
     prefix: $('#opt-prefix').value || 'E',
   };
+}
+
+function selectedSections() {
+  return state.sectionKeys.filter((key) => !state.unselected.has(key));
 }
 
 let previewTimer = null;
@@ -368,14 +386,26 @@ function renderPreview(data) {
   const decDesnivel = Number($('#dec-desnivel').value || 2);
   const decRuling = Number($('#dec-ruling_span').value || 4);
 
+  state.sectionKeys = data.sections.map((s) => s.key);
+
   data.sections.forEach((section) => {
     const single = section.subspans.length === 1;
+    const on = !state.unselected.has(section.key);
     const intermediate = section.intermediate.length
       ? el('span', { class: 'pill-row' },
           ...section.intermediate.map((s) => structurePill(s.key, s.label, s.kind)))
       : el('span', { class: 'muted', text: '—' });
 
-    body.append(el('tr', {},
+    const tick = el('input', { type: 'checkbox', title: `Incluir el tramo ${section.tramo}` });
+    tick.checked = on;
+    tick.addEventListener('change', () => {
+      if (tick.checked) state.unselected.delete(section.key);
+      else state.unselected.add(section.key);
+      runPreview();
+    });
+
+    body.append(el('tr', { class: on ? '' : 'off' },
+      el('td', { class: 'pick' }, tick),
       el('td', {}, el('strong', { text: section.tramo })),
       el('td', {}, structurePill(section.from_key, section.from_label, section.from_kind)),
       el('td', {}, structurePill(section.to_key, section.to_label, section.to_kind)),
@@ -387,7 +417,8 @@ function renderPreview(data) {
 
     if (!single) {
       section.subspans.forEach((sub) => {
-        body.append(el('tr', { class: 'sub' },
+        body.append(el('tr', { class: on ? 'sub' : 'sub off' },
+          el('td', { class: 'pick' }),
           el('td', { text: `↳ ${sub.from_label}-${sub.to_label}` }),
           el('td', {}), el('td', {}), el('td', {}), el('td', {}),
           el('td', { class: 'num', text: num(sub.vano, decVano) }),
@@ -397,11 +428,24 @@ function renderPreview(data) {
     }
   });
 
+  const elegidos = selectedSections();
+  const master = $('#sections-master');
+  master.checked = elegidos.length === data.sections.length;
+  master.indeterminate = elegidos.length > 0 && elegidos.length < data.sections.length;
+  $('#btn-generate').disabled = elegidos.length === 0;
+
   const warnings = [...(data.warnings || [])];
-  data.sections.forEach((s) => s.warnings.forEach((w) => warnings.push(`${s.tramo}: ${w}`)));
+  // Solo interesan los avisos de los tramos que van al documento.
+  data.sections
+    .filter((s) => !state.unselected.has(s.key))
+    .forEach((s) => s.warnings.forEach((w) => warnings.push(`${s.tramo}: ${w}`)));
+
   const host = $('#preview-warnings');
-  host.replaceChildren(notice('ok',
-    `${data.sections.length} tabla(s) se generarán con ${data.temperatures.length} temperatura(s).`));
+  host.replaceChildren(elegidos.length
+    ? notice('ok', elegidos.length === data.sections.length
+        ? `Se generarán las ${data.sections.length} tabla(s) con ${data.temperatures.length} temperatura(s).`
+        : `Se generarán ${elegidos.length} de ${data.sections.length} tabla(s), con ${data.temperatures.length} temperatura(s).`)
+    : notice('warn', 'No hay ningún tramo marcado: marca al menos uno para poder generar el anexo.'));
   if (warnings.length) {
     host.append(notice('warn', 'Revisa estos puntos antes de generar:', [...new Set(warnings)].slice(0, 25)));
   }
@@ -420,6 +464,7 @@ $('#btn-generate').addEventListener('click', async () => {
   try {
     const payload = {
       ...configPayload(),
+      sections: selectedSections(),
       condicion_texto: $('#opt-condicion').value.trim(),
       title_template: $('#opt-title').value,
       start_number: Number($('#opt-start').value || 1),

@@ -111,8 +111,10 @@
       <header>
         <span class="num">4</span>
         <h2>Tramos y estructuras</h2>
-        <span class="hint">Clic en una estructura para cambiar su tipo</span>
+        <span class="hint">Marca los tramos que quieres en el anexo</span>
         <span class="spacer"></span>
+        <button class="ghost small" type="button" id="sections-all">Marcar todos</button>
+        <button class="ghost small" type="button" id="sections-none">Desmarcar</button>
         <button class="ghost small" type="button" id="kinds-reset">Restaurar detección automática</button>
       </header>
       <div class="body">
@@ -121,6 +123,7 @@
           <table class="data" id="preview-table">
             <thead>
               <tr>
+                <th class="pick"><input type="checkbox" id="sections-master" title="Marcar o desmarcar todos"></th>
                 <th>Tramo</th><th>STR inicio</th><th>STR fin</th><th>Suspensiones intermedias</th>
                 <th class="num">Luz equiv. [m]</th><th class="num">Vano [m]</th>
                 <th class="num">Desnivel [m]</th><th>Conductor</th>

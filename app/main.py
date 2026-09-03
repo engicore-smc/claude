@@ -110,6 +110,8 @@ class ConfigRequest(BaseModel):
 
 
 class GenerateRequest(ConfigRequest):
+    # Tramos a incluir (claves de la vista previa). Vacio = todos.
+    sections: list[str] = Field(default_factory=list)
     condicion_texto: str = ""
     title_template: str = docx_writer.DEFAULT_TITLE_TEMPLATE
     start_number: int = 1
@@ -310,6 +312,7 @@ def preview(payload: ConfigRequest):
         "structures": _structures(job.dataset),
         "sections": [
             {
+                "key": section.key,
                 "tramo": section.tramo_label,
                 "from_key": section.from_key,
                 "to_key": section.to_key,
@@ -346,6 +349,11 @@ def preview(payload: ConfigRequest):
 def generate(payload: GenerateRequest):
     job = _get_job(payload.job_id)
     sections, _, temps = _apply_config(job, payload)
+    if payload.sections:
+        elegidos = set(payload.sections)
+        sections = [section for section in sections if section.key in elegidos]
+        if not sections:
+            raise HTTPException(status_code=400, detail="Ninguno de los tramos marcados sigue existiendo.")
     options = docx_writer.DocOptions(
         condicion=payload.condicion_texto,
         title_template=payload.title_template or docx_writer.DEFAULT_TITLE_TEMPLATE,
