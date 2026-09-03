@@ -81,7 +81,7 @@
       <header>
         <span class="num">3</span>
         <h2>Filtros</h2>
-        <span class="hint">Conductor, condición y temperaturas</span>
+        <span class="hint">Conductor y temperaturas</span>
       </header>
       <div class="body">
         <div class="grid cols-2">
@@ -90,10 +90,12 @@
             <select id="cable-select"></select>
             <p class="muted" style="margin:6px 0 0">Es el valor único que identifica el tipo de cable.</p>
           </div>
-          <div>
-            <label class="field" for="condition-select">Condición</label>
-            <select id="condition-select"></select>
-            <p class="muted" style="margin:6px 0 0">Se usa como filtro y en el título de cada tabla.</p>
+          <div id="weather-wrap">
+            <label class="field" for="weather-select">Caso de clima de referencia</label>
+            <select id="weather-select"></select>
+            <p class="muted" style="margin:6px 0 0">
+              La carga vertical cambia con hielo o viento. Por defecto se toma el peso propio del cable.
+            </p>
           </div>
         </div>
         <div style="margin-top:18px">
@@ -107,35 +109,14 @@
       </div>
     </section>
 
-    <!-- ------------------------------------------------ 4. Estructuras -->
-    <section class="step" id="step-structures" hidden>
-      <header>
-        <span class="num">4</span>
-        <h2>Anclaje o suspensión</h2>
-        <span class="hint">Preseleccionado por <code>_A_</code> / <code>_S_</code> en el nombre</span>
-        <span class="spacer"></span>
-        <span id="structures-count" class="muted"></span>
-      </header>
-      <div class="body">
-        <div class="actions" style="margin:0 0 12px">
-          <button class="ghost small" type="button" id="kinds-reset">Restaurar detección automática</button>
-        </div>
-        <div class="table-scroll" style="max-height:340px; overflow-y:auto">
-          <table class="data" id="structures-table">
-            <thead><tr><th>Estructura</th><th>Nombre</th><th>Coordenadas</th><th>Tipo</th></tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <!-- ------------------------------------------------ 5. Vista previa -->
+    <!-- ------------------------------------------------ 4. Tramos -->
     <section class="step" id="step-preview" hidden>
       <header>
-        <span class="num">5</span>
-        <h2>Vista previa de los tramos</h2>
+        <span class="num">4</span>
+        <h2>Tramos y estructuras</h2>
+        <span class="hint">Clic en una estructura para cambiar su tipo</span>
         <span class="spacer"></span>
-        <button class="ghost small" type="button" id="btn-preview">Actualizar</button>
+        <button class="ghost small" type="button" id="kinds-reset">Restaurar detección automática</button>
       </header>
       <div class="body">
         <div id="preview-warnings"></div>
@@ -151,13 +132,22 @@
             <tbody></tbody>
           </table>
         </div>
+        <details class="advanced">
+          <summary>Ver todas las estructuras <span id="structures-count" class="muted"></span></summary>
+          <div class="table-scroll" style="max-height:320px; overflow-y:auto; margin-top:10px">
+            <table class="data" id="structures-table">
+              <thead><tr><th>Estructura</th><th>Nombre</th><th>Coordenadas</th><th>Tipo</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </details>
       </div>
     </section>
 
     <!-- ------------------------------------------------ 6. Documento -->
     <section class="step" id="step-generate" hidden>
       <header>
-        <span class="num">6</span>
+        <span class="num">5</span>
         <h2>Generar anexo Word</h2>
       </header>
       <div class="body">
@@ -181,7 +171,12 @@
             <input type="number" id="opt-size" value="7" min="5" max="14" step="0.5">
           </div>
         </div>
-        <div class="grid cols-2" style="margin-top:16px">
+        <div class="grid cols-3" style="margin-top:16px">
+          <div>
+            <label class="field" for="opt-condicion">Condición</label>
+            <input type="text" id="opt-condicion" value="Initial RS">
+            <p class="muted" style="margin:6px 0 0">Se toma del reporte y se usa en el título de cada tabla.</p>
+          </div>
           <div>
             <label class="field" for="opt-doc-title">Título del documento</label>
             <input type="text" id="opt-doc-title" value="Anexo - Tablas de tensado">

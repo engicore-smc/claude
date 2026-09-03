@@ -5,6 +5,7 @@ const state = {
   reports: null,
   options: null,
   kinds: {},          // clave de estructura -> 'anclaje' | 'suspension'
+  structures: [],     // estructuras conocidas, en orden
   temps: [],          // temperaturas disponibles
   selectedTemps: [],
 };
@@ -126,19 +127,19 @@ function applyJobPayload(payload) {
   if (!payload.ready) {
     fail(payload.error || 'No se pudieron interpretar los reportes.');
     $('#mapping-details').open = true;
-    ['#step-filters', '#step-structures', '#step-preview', '#step-generate'].forEach((id) => show(id, false));
+    ['#step-filters', '#step-preview', '#step-generate'].forEach((id) => show(id, false));
     return;
   }
   clearError();
   state.kinds = {};
-  payload.options.structures.forEach((s) => { state.kinds[s.key] = s.kind; });
+  state.structures = payload.options.structures;
+  state.structures.forEach((s) => { state.kinds[s.key] = s.kind; });
   renderFilters();
   renderStructures();
   show('#step-filters');
-  show('#step-structures');
   show('#step-preview');
   show('#step-generate');
-  refreshTemperatures().then(refreshPreview);
+  refreshOptions().then(runPreview);
 }
 
 function renderMapping() {
@@ -194,32 +195,43 @@ $('#btn-remap').addEventListener('click', async () => {
 
 // ------------------------------------------------------------------ paso 3
 function renderFilters() {
-  const cables = state.options.cables;
+  const weather = $('#weather-select');
+  weather.replaceChildren(el('option', { value: '' }, 'Peso propio del cable (recomendado)'));
+  (state.options.weather_cases || []).forEach((name) => weather.append(el('option', { value: name }, name)));
+  $('#weather-wrap').hidden = !(state.options.weather_cases || []).length;
+
+  if (state.options.condition_text) $('#opt-condicion').value = state.options.condition_text;
+
+  const warnings = state.options.warnings || [];
+  if (warnings.length) $('#global-error').replaceChildren(notice('warn', 'Avisos al leer los reportes:', warnings));
+}
+
+function renderCables(cables) {
+  const previous = $('#cable-select').value;
   const select = $('#cable-select');
   select.replaceChildren();
-  if (!cables.length) {
-    select.append(el('option', { value: '' }, 'Sin conductores detectados'));
-  }
+  if (!cables.length) select.append(el('option', { value: '' }, 'Sin conductores detectados'));
   cables.forEach((cable) => {
     select.append(el('option', { value: String(cable.value) }, `${cable.label} — ${cable.spans} vano(s)`));
   });
-
-  const conditions = state.options.conditions || [];
-  const condition = $('#condition-select');
-  condition.replaceChildren(el('option', { value: '' }, conditions.length ? 'Todas las condiciones' : 'No disponible en el reporte'));
-  conditions.forEach((value) => condition.append(el('option', { value }, value)));
-  if (conditions.length) condition.value = conditions[0];
-
-  const warnings = state.options.warnings || [];
-  const host = $('#global-error');
-  if (warnings.length) host.replaceChildren(notice('warn', 'Avisos al leer los reportes:', warnings));
+  if (previous && cables.some((c) => String(c.value) === previous)) select.value = previous;
 }
 
-async function refreshTemperatures() {
+async function refreshOptions({ keepTemps = false } = {}) {
   try {
-    const data = await api('/api/temperatures', { body: { job_id: state.jobId, cable: currentCable() } });
-    state.temps = data.temperatures;
-    state.selectedTemps = data.temperatures.slice();
+    const data = await api('/api/options', {
+      body: { job_id: state.jobId, cable: currentCable(), weather_case: currentWeather() },
+    });
+    renderCables(data.cables);
+    const fresh = await api('/api/options', {
+      body: { job_id: state.jobId, cable: currentCable(), weather_case: currentWeather() },
+    });
+    const previous = new Set(state.selectedTemps);
+    state.temps = fresh.temperatures;
+    state.selectedTemps = keepTemps
+      ? fresh.temperatures.filter((t) => previous.has(t))
+      : fresh.temperatures.slice();
+    if (!state.selectedTemps.length) state.selectedTemps = fresh.temperatures.slice();
     renderTempChips();
   } catch (error) {
     fail(error.message);
@@ -231,20 +243,17 @@ function renderTempChips() {
   host.replaceChildren();
   state.temps.forEach((temp) => {
     const on = state.selectedTemps.includes(temp);
-    const chip = el('label', { class: `chip${on ? ' on' : ''}` }, formatTemp(temp));
+    const chip = el('label', { class: `chip${on ? ' on' : ''}` }, `${temp}°C`);
     chip.addEventListener('click', () => {
       const index = state.selectedTemps.indexOf(temp);
       if (index >= 0) state.selectedTemps.splice(index, 1);
       else state.selectedTemps.push(temp);
       state.selectedTemps.sort((a, b) => a - b);
       renderTempChips();
+      refreshPreview();
     });
     host.append(chip);
   });
-}
-
-function formatTemp(temp) {
-  return Number.isInteger(temp) ? `${temp}°C` : `${temp}°C`;
 }
 
 function currentCable() {
@@ -252,37 +261,56 @@ function currentCable() {
   return value === '' ? null : Number(value);
 }
 
-$('#cable-select').addEventListener('change', async () => { await refreshTemperatures(); refreshPreview(); });
-$('#condition-select').addEventListener('change', refreshPreview);
-$('#temps-all').addEventListener('click', () => { state.selectedTemps = state.temps.slice(); renderTempChips(); });
-$('#temps-none').addEventListener('click', () => { state.selectedTemps = []; renderTempChips(); });
+function currentWeather() {
+  return $('#weather-select').value || null;
+}
+
+$('#cable-select').addEventListener('change', async () => { await refreshOptions({ keepTemps: true }); runPreview(); });
+$('#weather-select').addEventListener('change', async () => { await refreshOptions(); runPreview(); });
+$('#temps-all').addEventListener('click', () => { state.selectedTemps = state.temps.slice(); renderTempChips(); refreshPreview(); });
+$('#temps-none').addEventListener('click', () => { state.selectedTemps = []; renderTempChips(); refreshPreview(); });
 
 // ------------------------------------------------------------------ paso 4
+function toggleKind(key) {
+  state.kinds[key] = state.kinds[key] === 'anclaje' ? 'suspension' : 'anclaje';
+  renderStructures();
+  runPreview();
+}
+
+/** Pastilla con el tipo de estructura; al hacer clic cambia anclaje <-> suspensión. */
+function structurePill(key, label, kind) {
+  return el('button', {
+    type: 'button',
+    class: `pill ${kind}`,
+    title: `${label} · ${kind === 'anclaje' ? 'anclaje' : 'suspensión'} — clic para cambiar`,
+    onclick: () => toggleKind(key),
+  }, label, el('span', { class: 'pill-kind', text: kind === 'anclaje' ? 'A' : 'S' }));
+}
+
 function renderStructures() {
   const body = $('#structures-table tbody');
   body.replaceChildren();
-  const structures = state.options.structures;
+  const anchors = state.structures.filter((s) => state.kinds[s.key] === 'anclaje').length;
   $('#structures-count').textContent =
-    `${structures.filter((s) => state.kinds[s.key] === 'anclaje').length} anclaje / ` +
-    `${structures.filter((s) => state.kinds[s.key] === 'suspension').length} suspensión`;
+    `· ${anchors} anclaje / ${state.structures.length - anchors} suspensión`;
 
-  structures.forEach((structure) => {
+  state.structures.forEach((structure) => {
     const toggle = el('div', { class: 'toggle' });
     ['anclaje', 'suspension'].forEach((kind) => {
-      const button = el('button', {
+      toggle.append(el('button', {
         type: 'button',
         class: state.kinds[structure.key] === kind ? 'on' : '',
         onclick: () => {
+          if (state.kinds[structure.key] === kind) return;
           state.kinds[structure.key] = kind;
           renderStructures();
-          refreshPreview();
+          runPreview();
         },
-      }, kind === 'anclaje' ? 'Anclaje' : 'Suspensión');
-      toggle.append(button);
+      }, kind === 'anclaje' ? 'Anclaje' : 'Suspensión'));
     });
     body.append(el('tr', {},
       el('td', {}, el('strong', { text: structure.key })),
-      el('td', { text: structure.name || '—' }),
+      el('td', { text: structure.name || structure.description || '—' }),
       el('td', {}, structure.has_coords
         ? el('span', { class: 'badge ok', text: 'sí' })
         : el('span', { class: 'badge warn', text: 'faltan' })),
@@ -291,20 +319,19 @@ function renderStructures() {
 }
 
 $('#kinds-reset').addEventListener('click', () => {
-  state.options.structures.forEach((s) => { state.kinds[s.key] = s.auto_kind; });
+  state.structures.forEach((s) => { state.kinds[s.key] = s.auto_kind; });
   renderStructures();
-  refreshPreview();
+  runPreview();
 });
 
-// ------------------------------------------------------------------ paso 5
 function configPayload() {
   return {
     job_id: state.jobId,
     cable: currentCable(),
+    weather_case: currentWeather(),
     temperatures: state.selectedTemps,
     kinds: state.kinds,
     prefix: $('#opt-prefix').value || 'E',
-    condition: $('#condition-select').value || null,
   };
 }
 
@@ -315,23 +342,23 @@ function refreshPreview() {
 }
 
 async function runPreview() {
-  if (!state.jobId || !state.selectedTemps.length) {
+  if (!state.jobId) return;
+  if (!state.selectedTemps.length) {
     $('#preview-table tbody').replaceChildren();
-    $('#preview-warnings').replaceChildren(
-      state.jobId ? notice('warn', 'Selecciona al menos una temperatura.') : null);
+    $('#preview-warnings').replaceChildren(notice('warn', 'Selecciona al menos una temperatura.'));
     return;
   }
   try {
     const data = await api('/api/preview', { body: configPayload() });
+    if (data.structures) {
+      state.structures = data.structures;
+      renderStructures();
+    }
     renderPreview(data);
   } catch (error) {
     $('#preview-table tbody').replaceChildren();
     $('#preview-warnings').replaceChildren(notice('err', error.message));
   }
-}
-
-function kindBadge(kind) {
-  return el('span', { class: `badge ${kind}`, text: kind === 'anclaje' ? 'Anclaje' : 'Suspensión' });
 }
 
 function renderPreview(data) {
@@ -344,13 +371,14 @@ function renderPreview(data) {
   data.sections.forEach((section) => {
     const single = section.subspans.length === 1;
     const intermediate = section.intermediate.length
-      ? el('span', {}, ...section.intermediate.flatMap((s, i) => [i ? ', ' : '', s.label]))
+      ? el('span', { class: 'pill-row' },
+          ...section.intermediate.map((s) => structurePill(s.key, s.label, s.kind)))
       : el('span', { class: 'muted', text: '—' });
 
     body.append(el('tr', {},
       el('td', {}, el('strong', { text: section.tramo })),
-      el('td', {}, section.from_label, ' ', kindBadge(section.from_kind)),
-      el('td', {}, section.to_label, ' ', kindBadge(section.to_kind)),
+      el('td', {}, structurePill(section.from_key, section.from_label, section.from_kind)),
+      el('td', {}, structurePill(section.to_key, section.to_label, section.to_kind)),
       el('td', {}, intermediate),
       el('td', { class: 'num', text: num(section.ruling_span, decRuling) }),
       el('td', { class: 'num', text: single ? num(section.subspans[0].vano, decVano) : '' }),
@@ -370,24 +398,20 @@ function renderPreview(data) {
   });
 
   const warnings = [...(data.warnings || [])];
-  data.sections.forEach((section) => {
-    section.warnings.forEach((w) => warnings.push(`${section.tramo}: ${w}`));
-  });
+  data.sections.forEach((s) => s.warnings.forEach((w) => warnings.push(`${s.tramo}: ${w}`)));
   const host = $('#preview-warnings');
-  host.replaceChildren();
-  host.append(notice('ok', `${data.sections.length} tabla(s) se generarán con ${data.temperatures.length} temperatura(s).`));
+  host.replaceChildren(notice('ok',
+    `${data.sections.length} tabla(s) se generarán con ${data.temperatures.length} temperatura(s).`));
   if (warnings.length) {
-    const unique = [...new Set(warnings)];
-    host.append(notice('warn', 'Revisa estos puntos antes de generar:', unique.slice(0, 25)));
+    host.append(notice('warn', 'Revisa estos puntos antes de generar:', [...new Set(warnings)].slice(0, 25)));
   }
 }
 
-$('#btn-preview').addEventListener('click', runPreview);
 $('#opt-prefix').addEventListener('change', refreshPreview);
 ['dec-vano', 'dec-desnivel', 'dec-ruling_span'].forEach((id) =>
   $(`#${id}`).addEventListener('change', runPreview));
 
-// ------------------------------------------------------------------ paso 6
+// ------------------------------------------------------------------ paso 5
 $('#btn-generate').addEventListener('click', async () => {
   const button = $('#btn-generate');
   const status = $('#generate-status');
@@ -396,7 +420,7 @@ $('#btn-generate').addEventListener('click', async () => {
   try {
     const payload = {
       ...configPayload(),
-      condicion_texto: $('#condition-select').value || 'Initial RS',
+      condicion_texto: $('#opt-condicion').value.trim(),
       title_template: $('#opt-title').value,
       chapter: $('#opt-chapter').value,
       start_number: Number($('#opt-start').value || 1),

@@ -28,10 +28,10 @@ CABLE_A = 0.4231   # conductor de la tabla de ejemplo
 CABLE_B = 1.2750   # otro cable, debe poder descartarse con el filtro
 
 SPANS = [
-    # (desde, hasta, ruling span, desnivel, sag, wave, tension daN)
-    ("5", "6", 86.4359, -17.46, SAG_56, WAVE_56, TENSION_DAN_56),
-    ("6", "7", 83.7103, -1.44, SAG_67, WAVE_67, TENSION_DAN_68),
-    ("7", "8", 83.7103, -1.09, SAG_78, WAVE_78, TENSION_DAN_68),
+    # (desde, hasta, seccion, ruling span, desnivel, sag, wave, tension daN)
+    ("5", "6", 1, 86.4359, -17.46, SAG_56, WAVE_56, TENSION_DAN_56),
+    ("6", "7", 2, 83.7103, -1.44, SAG_67, WAVE_67, TENSION_DAN_68),
+    ("7", "8", 2, 83.7103, -1.09, SAG_78, WAVE_78, TENSION_DAN_68),
 ]
 
 # Coordenadas elegidas para que Pitagoras reproduzca los vanos 88.1 / 86.3 / 80.9
@@ -42,7 +42,14 @@ COORDS = {
     "8": (86.35 + math.sqrt(86.3**2 - 1.44**2) + math.sqrt(80.9**2 - 1.09**2), -17.46 - 1.44 - 1.09),
 }
 
-NAMES = {"5": "LT66_A_S05", "6": "LT66_A_S06", "7": "LT66_S_S07", "8": "LT66_A_S08"}
+# PLS-CADD exporta la ruta completa del .stk; la marca _A_/_S_ va en el archivo.
+BASE = "C:\\Users\\a.cadd\\Desktop\\Proyecto\\Estructuras"
+NAMES = {
+    "5": BASE + "\\23kV_A_Poste_15.stk",
+    "6": BASE + "\\23kV_A_Portal_15.stk",
+    "7": BASE + "\\23kV_S_Portal_15.stk",
+    "8": BASE + "\\23kV_A_Poste_18.stk",
+}
 
 
 def _with_title_rows(frame: pd.DataFrame, title: str) -> pd.DataFrame:
@@ -56,14 +63,15 @@ def _with_title_rows(frame: pd.DataFrame, title: str) -> pd.DataFrame:
 
 def sag_report() -> pd.DataFrame:
     rows = []
-    for from_str, to_str, ruling, vert, sags, waves, tensions in SPANS:
+    for from_str, to_str, section, ruling, vert, sags, waves, tensions in SPANS:
         for index, temp in enumerate(TEMPS):
             rows.append({
                 "Span From  Str.": from_str,
                 "Span From Set": 1,
                 "Span To  Str.": to_str,
                 "Span To Set": 1,
-                "Condition": "Initial RS",
+                "Sec. No.": section,
+                "Cable Condition": "Initial RS",
                 "Temp.   (deg C)": temp,
                 "Ruling Span  (m)": ruling,
                 "Span Vert. Proj. (m)": vert,
@@ -77,7 +85,8 @@ def sag_report() -> pd.DataFrame:
                 "Span From Set": 2,
                 "Span To  Str.": to_str,
                 "Span To Set": 2,
-                "Condition": "Initial RS",
+                "Sec. No.": section + 10,
+                "Cable Condition": "Initial RS",
                 "Temp.   (deg C)": temp,
                 "Ruling Span  (m)": ruling,
                 "Span Vert. Proj. (m)": vert,
@@ -88,25 +97,23 @@ def sag_report() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+# Con hielo la carga vertical sube: no identifica al cable.
+ICE_FACTOR = 2.4
+
+
 def cable_report() -> pd.DataFrame:
     rows = []
     for from_str, to_str, *_ in SPANS:
-        rows.append({
-            "Span From  Str.": from_str,
-            "Span From Set": 1,
-            "Span To  Str.": to_str,
-            "Span To Set": 1,
-            "Cable File": "OPGW_48F.cab",
-            "Cable Load  Vert Load (daN/m)": CABLE_A,
-        })
-        rows.append({
-            "Span From  Str.": from_str,
-            "Span From Set": 2,
-            "Span To  Str.": to_str,
-            "Span To Set": 2,
-            "Cable File": "AAAC_240.cab",
-            "Cable Load  Vert Load (daN/m)": CABLE_B,
-        })
+        for set_no, load in ((1, CABLE_A), (2, CABLE_B)):
+            for case, value in (("EDS", load), ("Flecha Máxima", load), ("Hielo", round(load * ICE_FACTOR, 4))):
+                rows.append({
+                    "Span From  Str.": from_str,
+                    "Span From  Set": set_no,
+                    "Span To  Str.": to_str,
+                    "Span To  Set": set_no,
+                    "Weather Case  Description": case,
+                    "Cable Load  Vert Load (daN/m)": value,
+                })
     return pd.DataFrame(rows)
 
 
@@ -116,13 +123,14 @@ def structures_report() -> pd.DataFrame:
     for key in ("5", "6", "7", "8"):
         x, y = COORDS[key]
         rows.append({
-            "Structure Number": key,
-            "Structure Name": NAMES[key],
-            "Station (m)": round(station, 3),
-            "Ahead Span (m)": None,
-            "Struct. Type": "Steel",
-            "X (m)": x,
-            "Y (m)": y,
+            "Structure  Number": key,
+            "Station     (m)": round(station, 3),
+            "Ahead  Span   (m)": None,
+            "X  Easting   (m)": x,
+            "Y  Northing   (m)": y,
+            "Centerline Z  Elevation   (m)": 3000 + station / 10,
+            "Structure  Name": NAMES[key],
+            "Structure  Description": "Portal anclaje 15m",
         })
         station += 90
     return pd.DataFrame(rows)

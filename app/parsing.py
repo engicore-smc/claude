@@ -105,13 +105,16 @@ SAG_FIELDS: tuple[FieldSpec, ...] = (
     FieldSpec("span_to_str", "Span To Str.", _n("Span To Str.", "Span To Structure", "To Str.", "Struct. To")),
     FieldSpec("span_from_set", "Span From Set", _n("Span From Set", "From Set"), required=False),
     FieldSpec("span_to_set", "Span To Set", _n("Span To Set", "To Set"), required=False),
+    # PLS-CADD ya agrupa los vanos en secciones de tensado (entre anclajes).
+    FieldSpec("section", "Sec. No.", _n("Sec. No.", "Section No.", "Sec No", "Section"), required=False),
     FieldSpec("ruling_span", "Ruling Span (m)", _n("Ruling Span (m)", "Ruling Span"), numeric=True),
+    FieldSpec("span_length", "Span Length (m)", _n("Span Length (m)", "Span Length"), required=False, numeric=True),
     FieldSpec("span_vert_proj", "Span Vert. Proj. (m)", _n("Span Vert. Proj. (m)", "Span Vert Proj", "Vert. Proj."), numeric=True),
     FieldSpec("mid_span_sag", "Mid Span Sag (m)", _n("Mid Span Sag (m)", "Mid Span Sag", "Mid-Span Sag"), numeric=True),
     FieldSpec("horz_tension", "Horz. Tension (daN)", _n("Horz. Tension (daN)", "Horz Tension", "Horizontal Tension"), numeric=True),
     FieldSpec("wave_time", "Wave Time (Sec)", _n("Wave Time (Sec)", "Wave Time", "Return Wave Time"), numeric=True),
     FieldSpec("temp", "Temp. (deg C)", _n("Temp. (deg C)", "Temperature (deg C)", "Temp (C)", "Cable Temp. (deg C)"), numeric=True),
-    FieldSpec("condition", "Condicion / Load case", _n("Condition", "Load Case", "Weather Case", "Wc Description", "Cable Condition"), required=False),
+    FieldSpec("condition", "Condición (solo para el título)", _n("Cable Condition", "Condition", "Load Case"), required=False),
 )
 
 CABLE_FIELDS: tuple[FieldSpec, ...] = (
@@ -119,15 +122,17 @@ CABLE_FIELDS: tuple[FieldSpec, ...] = (
     FieldSpec("span_to_str", "Span To Str.", _n("Span To Str.", "Span To Structure", "To Str.")),
     FieldSpec("span_from_set", "Span From Set", _n("Span From Set", "From Set"), required=False),
     FieldSpec("span_to_set", "Span To Set", _n("Span To Set", "To Set"), required=False),
-    FieldSpec("cable_vert_load", "Cable Load Vert Load (daN/m)", _n("Cable Load Vert Load (daN/m)", "Cable Load Vert Load", "Vert Load (daN/m)", "Cable Vert Load"), numeric=True),
-    FieldSpec("cable_name", "Nombre del cable", _n("Cable File", "Cable Name", "Cable", "Cable Type"), required=False),
+    FieldSpec("cable_vert_load", "Cable Load Vert Load (daN/m)", _n("Cable Load Vert Load (daN/m)", "Cable Load Vert Load", "Vert Load (daN/m)"), numeric=True),
+    # Permite descartar los casos con hielo, que alteran la carga vertical.
+    FieldSpec("weather_case", "Weather Case Description", _n("Weather Case Description", "Weather Case", "Wc Description"), required=False),
 )
 
 STRUCTURE_FIELDS: tuple[FieldSpec, ...] = (
-    FieldSpec("structure_number", "Structure Number", _n("Structure Number", "Str. Number", "Structure No", "Structure", "Str Number")),
-    FieldSpec("structure_name", "Structure Name", _n("Structure Name", "Str. Name", "Name"), required=False),
-    FieldSpec("coord_x", "Coordenada 1 (para el vano)", _n("X (m)", "X", "Easting", "Este", "Station (m)", "Station"), numeric=True),
-    FieldSpec("coord_y", "Coordenada 2 (para el vano)", _n("Y (m)", "Y", "Northing", "Norte", "Elevation (m)", "Elevation", "Z (m)"), numeric=True),
+    FieldSpec("structure_number", "Structure Number", _n("Structure Number", "Str. Number", "Structure No", "Str Number", "Structure")),
+    FieldSpec("structure_name", "Structure Name", _n("Structure Name", "Str. Name"), required=False),
+    FieldSpec("structure_description", "Structure Description", _n("Structure Description", "Str. Description", "Description"), required=False),
+    FieldSpec("coord_x", "Coordenada X (para el vano)", _n("X Easting (m)", "X (m)", "Easting (m)", "Easting", "Este", "X"), numeric=True),
+    FieldSpec("coord_y", "Coordenada Y (para el vano)", _n("Y Northing (m)", "Y (m)", "Northing (m)", "Northing", "Norte", "Y"), numeric=True),
 )
 
 REPORT_FIELDS: dict[str, tuple[FieldSpec, ...]] = {

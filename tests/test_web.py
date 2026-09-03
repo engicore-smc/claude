@@ -84,6 +84,12 @@ def test_upload_lists_cables_and_structures(job):
     assert kinds == {"5": "anclaje", "6": "anclaje", "7": "suspension", "8": "anclaje"}
 
 
+def test_upload_reports_weather_cases_and_condition(job):
+    assert job["options"]["condition_text"] == "Initial RS"
+    assert "Hielo" in job["options"]["weather_cases"]
+    assert job["options"]["has_sections"] is True
+
+
 def _config(job):
     return {
         "job_id": job["job_id"],
@@ -91,7 +97,6 @@ def _config(job):
         "temperatures": [float(t) for t in fixtures.TEMPS],
         "kinds": {s["key"]: s["kind"] for s in job["options"]["structures"]},
         "prefix": "E",
-        "condition": "Initial RS",
     }
 
 
@@ -111,6 +116,22 @@ def test_reclassifying_a_structure_changes_the_sections(logged_in, job):
     payload["kinds"]["7"] = "anclaje"  # E7 pasa a ser anclaje
     data = logged_in.post("/api/preview", json=payload).json()
     assert [s["tramo"] for s in data["sections"]] == ["E5-E6", "E6-E7", "E7-E8"]
+
+
+def test_options_endpoint_switches_cables_with_the_weather_case(logged_in, job):
+    body = {"job_id": job["job_id"], "cable": None, "weather_case": "Hielo"}
+    data = logged_in.post("/api/options", json=body).json()
+    values = sorted(round(c["value"], 4) for c in data["cables"])
+    assert values == [round(fixtures.CABLE_A * fixtures.ICE_FACTOR, 4),
+                      round(fixtures.CABLE_B * fixtures.ICE_FACTOR, 4)]
+    assert data["temperatures"] == [float(t) for t in fixtures.TEMPS]
+
+
+def test_preview_returns_structures_for_inline_editing(logged_in, job):
+    data = logged_in.post("/api/preview", json=_config(job)).json()
+    keys = {s["key"] for s in data["structures"]}
+    assert keys == {"5", "6", "7", "8"}
+    assert data["sections"][1]["intermediate"][0]["key"] == "7"
 
 
 def test_generate_returns_a_word_document_with_both_tables(logged_in, job):

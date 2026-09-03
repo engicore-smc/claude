@@ -33,14 +33,41 @@ def test_header_detection_finds_columns_despite_title_rows():
     assert mapping.mapping["span_from_str"] == "Span From Str."
 
 
-def test_structures_are_classified_from_the_name():
-    assert analysis.classify_name("LT66_A_S06") == analysis.ANCLAJE
-    assert analysis.classify_name("LT66_S_S07") == analysis.SUSPENSION
+def test_structures_are_classified_from_the_stk_filename():
+    # La marca se busca en el nombre del archivo, no en la ruta: una carpeta
+    # llamada "a" no debe leerse como _A_.
+    assert analysis.classify_from_name(fixtures.NAMES["6"]) == analysis.ANCLAJE
+    assert analysis.classify_from_name(fixtures.NAMES["7"]) == analysis.SUSPENSION
+    assert analysis.classify_from_name(r"C:\Users\a\x\Portal_15.stk") is None
 
 
-def test_cable_options_expose_both_conductors(dataset):
+def test_stk_filename_wins_over_a_misleading_description(dataset):
+    # Todas las estructuras traen "Portal anclaje 15m" como descripcion, pero
+    # la 7 es _S_ en el nombre del archivo.
+    assert dataset.structures["7"].auto_kind == analysis.SUSPENSION
+    assert dataset.structures["6"].auto_kind == analysis.ANCLAJE
+
+
+def test_condition_is_read_from_the_report(dataset):
+    assert dataset.condition_text == "Initial RS"
+
+
+def test_sections_come_from_the_pls_cadd_section_number(dataset):
+    assert dataset.has_sections
+    assert dataset.span_sections[("6", "7")] == dataset.span_sections[("7", "8")]
+    assert dataset.span_sections[("5", "6")] != dataset.span_sections[("6", "7")]
+
+
+def test_cable_options_ignore_the_ice_case_by_default(dataset):
+    # Con hielo la carga vertical sube; el peso propio es el que identifica al cable.
     values = sorted(round(float(o["value"]), 4) for o in analysis.cable_options(dataset))
     assert values == [fixtures.CABLE_A, fixtures.CABLE_B]
+
+
+def test_cable_options_follow_the_chosen_weather_case(dataset):
+    values = sorted(round(float(o["value"]), 4) for o in analysis.cable_options(dataset, "Hielo"))
+    assert values == [round(fixtures.CABLE_A * fixtures.ICE_FACTOR, 4),
+                      round(fixtures.CABLE_B * fixtures.ICE_FACTOR, 4)]
 
 
 def test_temperatures_match_the_report(dataset):
@@ -51,7 +78,7 @@ def test_temperatures_match_the_report(dataset):
 def sections(dataset) -> list[analysis.Section]:
     kinds = {k: s.auto_kind for k, s in dataset.structures.items()}
     built, _ = analysis.build_sections(
-        dataset, fixtures.CABLE_A, kinds, [float(t) for t in fixtures.TEMPS], prefix="E", condition="Initial RS",
+        dataset, fixtures.CABLE_A, kinds, [float(t) for t in fixtures.TEMPS], prefix="E",
     )
     return built
 
@@ -222,3 +249,18 @@ def test_comma_decimal_separator(sections):
     blob = docx_writer.build_document(sections, [float(t) for t in fixtures.TEMPS], options)
     grid = _grid(Document(io.BytesIO(blob)).tables[0])
     assert grid[2][:5] == ["E5-E6", "86,4359", "E5-E6", "88,1", "-17,46"]
+
+
+def test_marking_an_intermediate_structure_as_anchor_splits_the_section(dataset):
+    kinds = {k: s.auto_kind for k, s in dataset.structures.items()}
+    kinds["7"] = analysis.ANCLAJE
+    built, _ = analysis.build_sections(dataset, fixtures.CABLE_A, kinds, [0.0])
+    assert [s.tramo_label for s in built] == ["E5-E6", "E6-E7", "E7-E8"]
+
+
+def test_marking_an_endpoint_as_suspension_merges_two_sections(dataset):
+    kinds = {k: s.auto_kind for k, s in dataset.structures.items()}
+    kinds["6"] = analysis.SUSPENSION
+    built, _ = analysis.build_sections(dataset, fixtures.CABLE_A, kinds, [0.0])
+    assert [s.tramo_label for s in built] == ["E5-E8"]
+    assert built[0].intermediate_labels == ["E6", "E7"]

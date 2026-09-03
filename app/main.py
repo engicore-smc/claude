@@ -103,14 +103,14 @@ class MappingRequest(BaseModel):
 class ConfigRequest(BaseModel):
     job_id: str
     cable: float | None = None
+    weather_case: str | None = None
     temperatures: list[float] = Field(default_factory=list)
     kinds: dict[str, str] = Field(default_factory=dict)
     prefix: str = "E"
-    condition: str | None = None
 
 
 class GenerateRequest(ConfigRequest):
-    condicion_texto: str = "Initial RS"
+    condicion_texto: str = ""
     title_template: str = docx_writer.DEFAULT_TITLE_TEMPLATE
     chapter: str = "10"
     start_number: int = 1
@@ -174,14 +174,8 @@ def _report_state(job: Job) -> dict[str, object]:
     }
 
 
-def _options(job: Job) -> dict[str, object] | None:
-    if job.dataset is None:
-        return None
-    dataset = job.dataset
-    return {
-        "cables": analysis.cable_options(dataset),
-        "conditions": dataset.conditions,
-        "structures": [
+def _structures(dataset: analysis.Dataset) -> list[dict[str, object]]:
+    return [
             {
                 "key": key,
                 "name": dataset.structures[key].name,
@@ -189,8 +183,20 @@ def _options(job: Job) -> dict[str, object] | None:
                 "auto_kind": dataset.structures[key].auto_kind,
                 "has_coords": dataset.structures[key].has_coords,
             }
-            for key in dataset.structure_order
-        ],
+        for key in dataset.structure_order
+    ]
+
+
+def _options(job: Job) -> dict[str, object] | None:
+    if job.dataset is None:
+        return None
+    dataset = job.dataset
+    return {
+        "cables": analysis.cable_options(dataset, None),
+        "weather_cases": dataset.weather_cases,
+        "condition_text": dataset.condition_text,
+        "has_sections": dataset.has_sections,
+        "structures": _structures(dataset),
         "warnings": dataset.warnings,
     }
 
@@ -215,7 +221,9 @@ def _apply_config(job: Job, payload: ConfigRequest) -> tuple[list[analysis.Secti
     for key, kind in kinds.items():
         job.dataset.structures[key].kind = kind
 
-    temperatures = payload.temperatures or analysis.temperature_options(job.dataset, payload.cable)
+    temperatures = payload.temperatures or analysis.temperature_options(
+        job.dataset, payload.cable, payload.weather_case
+    )
     if not temperatures:
         raise HTTPException(status_code=400, detail="Selecciona al menos una temperatura.")
     try:
@@ -225,7 +233,7 @@ def _apply_config(job: Job, payload: ConfigRequest) -> tuple[list[analysis.Secti
             kinds,
             temperatures,
             prefix=payload.prefix or "E",
-            condition=payload.condition or None,
+            weather_case=payload.weather_case,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -279,12 +287,16 @@ def update_mapping(payload: MappingRequest):
     return JSONResponse(_job_payload(job))
 
 
-@app.post("/api/temperatures", dependencies=[Depends(require_auth)])
-def temperatures(payload: ConfigRequest):
+@app.post("/api/options", dependencies=[Depends(require_auth)])
+def options(payload: ConfigRequest):
+    """Conductores y temperaturas disponibles para el caso de clima elegido."""
     job = _get_job(payload.job_id)
     if job.dataset is None:
         raise HTTPException(status_code=400, detail=job.dataset_error or "Los reportes todavia no estan listos.")
-    return {"temperatures": analysis.temperature_options(job.dataset, payload.cable)}
+    return {
+        "cables": analysis.cable_options(job.dataset, payload.weather_case),
+        "temperatures": analysis.temperature_options(job.dataset, payload.cable, payload.weather_case),
+    }
 
 
 @app.post("/api/preview", dependencies=[Depends(require_auth)])
@@ -295,21 +307,26 @@ def preview(payload: ConfigRequest):
     return {
         "temperatures": temps,
         "warnings": warnings,
+        "structures": _structures(job.dataset),
         "sections": [
             {
                 "tramo": section.tramo_label,
+                "from_key": section.from_key,
+                "to_key": section.to_key,
                 "from_label": section.from_label,
                 "to_label": section.to_label,
                 "from_kind": kinds.get(section.from_key, analysis.SUSPENSION),
                 "to_kind": kinds.get(section.to_key, analysis.SUSPENSION),
                 "intermediate": [
-                    {"label": label, "kind": kinds.get(key, analysis.SUSPENSION)}
+                    {"key": key, "label": label, "kind": kinds.get(key, analysis.SUSPENSION)}
                     for key, label in zip(section.intermediate_keys, section.intermediate_labels)
                 ],
                 "ruling_span": section.ruling_span,
                 "cable": section.cable_vert_load,
                 "subspans": [
                     {
+                        "from_key": sub.from_key,
+                        "to_key": sub.to_key,
                         "from_label": sub.from_label,
                         "to_label": sub.to_label,
                         "vano": sub.vano,

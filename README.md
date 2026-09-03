@@ -12,24 +12,45 @@ Acceso protegido por una única clave, pensada para un solo usuario.
 1. Se suben tres reportes (`.xlsx`, `.xls` o `.csv`).
 2. Se detectan las columnas automáticamente (tolera espacios dobles, filas de título y
    encabezados repartidos en dos filas); se puede corregir el mapeo a mano.
-3. Se elige el **conductor** (`Cable Load Vert Load (daN/m)`), la **condición** y las
-   **temperaturas** a incluir.
-4. Se clasifica cada estructura en **anclaje** o **suspensión** (preseleccionado por `_A_` /
-   `_S_` en el `Structure Name`, editable).
-5. Se muestra una **vista previa** de los tramos antes de procesar.
-6. Se genera el **.docx** con una tabla por tramo entre anclajes y su título numerado.
+3. Se elige el **conductor** (`Cable Load Vert Load (daN/m)`) y las **temperaturas**.
+4. Se revisan los **tramos**, con el tipo de cada estructura (**anclaje** / **suspensión**)
+   editable con un clic sobre ella.
+5. Se genera el **.docx** con una tabla por tramo entre anclajes y su título numerado.
+
+Cada reporte corresponde a **una condición** (`Initial RS`, `Final`, …): para otra condición se
+sube el reporte de esa condición. El texto se toma del reporte y se usa en el título de las
+tablas.
 
 ### Reportes de entrada
 
 | Reporte | Columnas que se usan |
 |---|---|
-| **Flecha y tensión por temperatura** (base principal) | `Span From Str.`, `Span To Str.`, `Span From Set`, `Span To Set`, `Ruling Span (m)`, `Span Vert. Proj. (m)`, `Mid Span Sag (m)`, `Horz. Tension (daN)`, `Wave Time (Sec)`, `Temp. (deg C)`, y opcionalmente una columna de condición / load case |
-| **Flecha y tensión (tipo de cable)** | Las mismas de estructura y set, más `Cable Load Vert Load (daN/m)` |
-| **Listado de estructuras / staking table** | `Structure Number`, `Structure Name`, y dos columnas de coordenadas |
+| **Flecha y tensión por temperatura** (base principal) | `Span From Str.`, `Span To Str.`, `Span From Set`, `Span To Set`, `Sec. No.`, `Ruling Span (m)`, `Span Length (m)`, `Span Vert. Proj. (m)`, `Mid Span Sag (m)`, `Horz. Tension (daN)`, `Wave Time (Sec)`, `Temp. (deg C)`, `Cable Condition` |
+| **Flecha y tensión (tipo de cable)** | Las mismas de estructura y set, más `Cable Load Vert Load (daN/m)` y `Weather Case Description` |
+| **Listado de estructuras / staking table** | `Structure Number`, `Structure Name`, `Structure Description`, `X Easting (m)`, `Y Northing (m)` |
 
 El tipo de cable se asocia cruzando `(Span From Str., Span To Str., Span From Set, Span To Set)`
 entre los dos primeros reportes; el valor de `Cable Load Vert Load` se convierte después en el
 filtro que elige el usuario.
+
+> **Casos de clima.** `Cable Load Vert Load` cambia con hielo o viento, así que no siempre
+> identifica al cable. Por defecto se toma el **menor valor de cada vano**, que es el peso propio
+> del conductor; también se puede fijar un caso de clima concreto.
+
+### Cómo se detectan los tramos
+
+Prioridad, de más a menos fiable:
+
+1. **`Sec. No.`** del reporte principal: PLS-CADD ya agrupa los vanos en secciones de tensado,
+   que son justamente los tramos entre anclajes. Los extremos de cada sección son anclajes y las
+   estructuras interiores, suspensiones.
+2. **`_A_` / `_S_`** en el nombre del archivo `.stk` de `Structure Name` (se ignora la ruta, para
+   que una carpeta llamada `a` no se lea como `_A_`).
+3. Las palabras «anclaje» / «suspensión» en `Structure Description`.
+
+Si el nombre y las secciones no coinciden, manda el nombre y se avisa en la vista previa. El tipo
+de cualquier estructura se puede cambiar con un clic: marcar una intermedia como anclaje **parte**
+el tramo, y marcar un extremo como suspensión **une** los dos tramos vecinos.
 
 ### Cómo se arma cada tabla
 
@@ -49,10 +70,10 @@ entre anclajes).
 | Tiempo [s] | `Wave Time (Sec)` |
 | Tensión kg | `Horz. Tension (daN)` × **1.019716** |
 
-> **Coordenadas del vano.** El vano se calcula con Pitágoras sobre las dos columnas que se
-> elijan en el mapeo (`Coordenada 1` y `Coordenada 2`). Verifica en la vista previa que el
-> resultado sea el esperado: si el vano coincide aproximadamente con `√(luz equivalente² +
-> desnivel²)`, las columnas elegidas son las correctas.
+> **Coordenadas del vano.** El vano se calcula con Pitágoras sobre `X Easting (m)` e
+> `Y Northing (m)`, igual que la fórmula de Excel original. Si el reporte trae `Span Length (m)`,
+> se compara con el vano calculado y se avisa cuando difieren, lo que delata columnas de
+> coordenadas mal asignadas.
 
 ---
 
