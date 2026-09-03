@@ -10,7 +10,7 @@ from docx.enum.section import WD_ORIENT
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
-from docx.shared import Cm, Emu, Mm, Pt
+from docx.shared import Cm, Emu, Mm, Pt, RGBColor
 
 from .analysis import DEFAULT_DECIMALS, Section
 
@@ -45,7 +45,6 @@ PT_TO_CM = 2.54 / 72
 class DocOptions:
     condicion: str = "Initial RS"
     title_template: str = DEFAULT_TITLE_TEMPLATE
-    chapter: str = "10"
     start_number: int = 1
     font_name: str = "Calibri"
     font_size: float = 8.0
@@ -95,10 +94,19 @@ def _new(tag: str, **attrs):
     return element
 
 
-def _style_run(run, options: DocOptions, *, bold: bool = False, size: float | None = None) -> None:
+def _style_run(
+    run,
+    options: DocOptions,
+    *,
+    bold: bool = False,
+    size: float | None = None,
+    color: RGBColor | None = None,
+) -> None:
     run.bold = bold
     run.font.size = Pt(size if size is not None else options.font_size)
     run.font.name = options.font_name
+    if color is not None:
+        run.font.color.rgb = color
     rpr = run._element.get_or_add_rPr()
     fonts = rpr.find(qn("w:rFonts"))
     if fonts is None:
@@ -203,11 +211,11 @@ def fit_widths(widths: list[float], available_cm: float) -> list[float]:
 # --------------------------------------------------------------------------
 # Titulo como referencia (campo SEQ dentro de un parrafo con estilo Titulo)
 # --------------------------------------------------------------------------
-def caption_parts(section: Section, index: int, options: DocOptions) -> tuple[str, str, str, str]:
-    """Divide el titulo en (antes, prefijo del capitulo, numero, despues).
+def caption_parts(section: Section, index: int, options: DocOptions) -> tuple[str, str, str]:
+    """Divide el titulo en (antes, numero, despues).
 
-    El 'numero' es el que se emite como campo SEQ, para que Word lo numere solo
-    y lo ofrezca en Insertar > Referencia cruzada.
+    El numero entero se emite como campo SEQ, sin texto literal alrededor, para
+    que Word lo numere solo y lo ofrezca en Insertar > Referencia cruzada.
     """
     sentinel = "\x00NUM\x00"
     start = re.search(r"(\d+)", section.from_key)
@@ -220,8 +228,7 @@ def caption_parts(section: Section, index: int, options: DocOptions) -> tuple[st
         condicion=options.condicion,
     )
     before, _, after = rendered.partition(sentinel)
-    prefix = f"{options.chapter}-" if options.chapter else ""
-    return before, prefix, str(options.start_number + index), after
+    return before, str(options.start_number + index), after
 
 
 def _add_caption(document: Document, section: Section, index: int, options: DocOptions) -> None:
@@ -232,42 +239,46 @@ def _add_caption(document: Document, section: Section, index: int, options: DocO
     paragraph.paragraph_format.space_after = Pt(3)
     paragraph.paragraph_format.keep_with_next = True
 
-    before, prefix, number, after = caption_parts(section, index, options)
-    for text in (before, prefix):
-        if text:
-            _style_run(paragraph.add_run(text), options, bold=True, size=options.title_size)
+    before, number, after = caption_parts(section, index, options)
+    if before:
+        _caption_run(paragraph, before, options)
 
-    # SEQ Tabla: el primero reinicia la numeracion en el numero elegido.
+    # SEQ Tabla. Solo el primero reinicia la numeracion, y unicamente si el
+    # usuario pidio empezar en otro numero: asi, al pegar las tablas en un
+    # informe que ya tiene tablas, Word continua la numeracion de ese informe.
     instruction = f" SEQ {CAPTION_LABEL} \\* ARABIC "
-    if index == 0:
+    if index == 0 and options.start_number != 1:
         instruction = f" SEQ {CAPTION_LABEL} \\r {options.start_number} \\* ARABIC "
     _append_field(paragraph, instruction, number, options)
 
     if after:
-        _style_run(paragraph.add_run(after), options, bold=True, size=options.title_size)
+        _caption_run(paragraph, after, options)
+
+
+def _caption_run(paragraph, text: str, options: DocOptions):
+    """Los titulos van en negro: el estilo Caption de Word es azul por defecto."""
+    run = paragraph.add_run(text)
+    _style_run(run, options, bold=True, size=options.title_size, color=RGBColor(0, 0, 0))
+    return run
 
 
 def _append_field(paragraph, instruction: str, cached: str, options: DocOptions) -> None:
     """Inserta un campo con su resultado en cache, para que se vea sin pulsar F9."""
-    begin = paragraph.add_run()
-    _style_run(begin, options, bold=True, size=options.title_size)
+    begin = _caption_run(paragraph, "", options)
     begin._element.append(_new("w:fldChar", fldCharType="begin"))
 
-    instr = paragraph.add_run()
-    _style_run(instr, options, bold=True, size=options.title_size)
+    instr = _caption_run(paragraph, "", options)
     node = _new("w:instrText")
     node.set(qn("xml:space"), "preserve")
     node.text = instruction
     instr._element.append(node)
 
-    separate = paragraph.add_run()
-    _style_run(separate, options, bold=True, size=options.title_size)
+    separate = _caption_run(paragraph, "", options)
     separate._element.append(_new("w:fldChar", fldCharType="separate"))
 
-    _style_run(paragraph.add_run(cached), options, bold=True, size=options.title_size)
+    _caption_run(paragraph, cached, options)
 
-    end = paragraph.add_run()
-    _style_run(end, options, bold=True, size=options.title_size)
+    end = _caption_run(paragraph, "", options)
     end._element.append(_new("w:fldChar", fldCharType="end"))
 
 
@@ -372,6 +383,14 @@ def build_document(sections: list[Section], temperatures: list[float], options: 
     normal = document.styles["Normal"]
     normal.font.name = options.font_name
     normal.font.size = Pt(options.font_size)
+
+    # El estilo Caption de Word viene en azul; el anexo lo quiere en negro.
+    caption = document.styles["Caption"]
+    caption.font.name = options.font_name
+    caption.font.size = Pt(options.title_size)
+    caption.font.bold = True
+    caption.font.italic = False
+    caption.font.color.rgb = RGBColor(0, 0, 0)
 
     widths = fit_widths(measure_columns(sections, temperatures, options), available)
 

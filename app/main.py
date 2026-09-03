@@ -112,7 +112,6 @@ class ConfigRequest(BaseModel):
 class GenerateRequest(ConfigRequest):
     condicion_texto: str = ""
     title_template: str = docx_writer.DEFAULT_TITLE_TEMPLATE
-    chapter: str = "10"
     start_number: int = 1
     font_name: str = "Calibri"
     font_size: float = 8.0
@@ -350,7 +349,6 @@ def generate(payload: GenerateRequest):
     options = docx_writer.DocOptions(
         condicion=payload.condicion_texto,
         title_template=payload.title_template or docx_writer.DEFAULT_TITLE_TEMPLATE,
-        chapter=payload.chapter,
         start_number=payload.start_number,
         font_name=payload.font_name or "Calibri",
         font_size=max(5.0, min(float(payload.font_size), 14.0)),

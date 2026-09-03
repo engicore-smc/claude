@@ -135,7 +135,7 @@ def test_preview_returns_structures_for_inline_editing(logged_in, job):
 
 
 def test_generate_returns_a_word_document_with_both_tables(logged_in, job):
-    payload = {**_config(job), "chapter": "10", "start_number": 4, "condicion_texto": "Initial RS"}
+    payload = {**_config(job), "start_number": 4, "condicion_texto": "Initial RS"}
     response = logged_in.post("/api/generate", json=payload)
     assert response.status_code == 200
     assert response.headers["content-type"].startswith(
@@ -145,8 +145,8 @@ def test_generate_returns_a_word_document_with_both_tables(logged_in, job):
     document = Document(io.BytesIO(response.content))
     titles = [p.text for p in document.paragraphs if p.text.startswith("Tabla ")]
     assert titles == [
-        "Tabla 10-4: Tramo entre las estructuras N°5 y N°6 en condición Initial RS",
-        "Tabla 10-5: Tramo entre las estructuras N°6 y N°8 en condición Initial RS",
+        "Tabla 4: Tramo entre las estructuras N°5 y N°6 en condición Initial RS",
+        "Tabla 5: Tramo entre las estructuras N°6 y N°8 en condición Initial RS",
     ]
     assert len(document.tables) == 2
 

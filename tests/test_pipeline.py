@@ -125,7 +125,7 @@ def _grid(table) -> list[list[str]]:
 
 @pytest.fixture(scope="module")
 def document(sections) -> Document:
-    options = docx_writer.DocOptions(condicion="Initial RS", chapter="10", start_number=4)
+    options = docx_writer.DocOptions(condicion="Initial RS", start_number=4)
     blob = docx_writer.build_document(sections, [float(t) for t in fixtures.TEMPS], options)
     return Document(io.BytesIO(blob))
 
@@ -133,8 +133,8 @@ def document(sections) -> Document:
 def test_document_titles(document):
     titles = [p.text for p in document.paragraphs if p.text.startswith("Tabla ")]
     assert titles == [
-        "Tabla 10-4: Tramo entre las estructuras N°5 y N°6 en condición Initial RS",
-        "Tabla 10-5: Tramo entre las estructuras N°6 y N°8 en condición Initial RS",
+        "Tabla 4: Tramo entre las estructuras N°5 y N°6 en condición Initial RS",
+        "Tabla 5: Tramo entre las estructuras N°6 y N°8 en condición Initial RS",
     ]
 
 
@@ -276,7 +276,7 @@ def _caption_paragraphs(document):
 def test_titles_use_the_caption_style(document):
     captions = _caption_paragraphs(document)
     assert len(captions) == 2
-    assert captions[0].text.startswith("Tabla 10-4: Tramo entre las estructuras")
+    assert captions[0].text.startswith("Tabla 4: Tramo entre las estructuras")
 
 
 def test_titles_carry_a_seq_field_so_word_can_cross_reference_them(document):
@@ -294,9 +294,9 @@ def test_titles_carry_a_seq_field_so_word_can_cross_reference_them(document):
 def test_the_number_is_cached_so_it_shows_before_pressing_f9(document):
     captions = _caption_paragraphs(document)
     assert captions[0].text == (
-        "Tabla 10-4: Tramo entre las estructuras N°5 y N°6 en condición Initial RS"
+        "Tabla 4: Tramo entre las estructuras N°5 y N°6 en condición Initial RS"
     )
-    assert captions[1].text.startswith("Tabla 10-5:")
+    assert captions[1].text.startswith("Tabla 5:")
 
 
 def test_caption_stays_with_its_table(document):
@@ -345,3 +345,37 @@ def test_narrow_pages_shrink_the_columns_proportionally():
 def test_table_layout_is_fixed_so_word_respects_the_widths(document):
     layout = document.tables[0]._tbl.tblPr.find(qn("w:tblLayout"))
     assert layout is not None and layout.get(qn("w:type")) == "fixed"
+
+
+def test_caption_text_is_black(document):
+    from docx.shared import RGBColor
+
+    # El estilo Caption de Word es azul por defecto; el anexo lo quiere negro.
+    assert document.styles["Caption"].font.color.rgb == RGBColor(0, 0, 0)
+    for caption in _caption_paragraphs(document):
+        for run in caption.runs:
+            if run.text:
+                assert run.font.color.rgb == RGBColor(0, 0, 0)
+
+
+def test_the_whole_number_lives_inside_the_field(document):
+    """No queda texto literal pegado al numero: todo el numero es el campo."""
+    caption = _caption_paragraphs(document)[0]
+    texts = [t.text for t in caption._p.iter(qn("w:t")) if t.text]
+    assert texts[0] == "Tabla "
+    assert texts[1] == "4"          # resultado cacheado del campo
+    assert texts[2].startswith(": Tramo entre")
+
+
+def test_starting_at_one_does_not_reset_the_numbering(sections):
+    """Asi, al pegar en un informe que ya tiene tablas, Word sigue su cuenta."""
+    options = docx_writer.DocOptions(start_number=1)
+    blob = docx_writer.build_document(sections, [0.0], options)
+    doc = Document(io.BytesIO(blob))
+    instructions = [
+        node.text
+        for caption in doc.paragraphs if caption.style.name == "Caption"
+        for node in caption._p.iter(qn("w:instrText"))
+    ]
+    assert all("\\r" not in text for text in instructions)
+    assert [p.text for p in doc.paragraphs if p.style.name == "Caption"][0].startswith("Tabla 1:")

@@ -422,7 +422,6 @@ $('#btn-generate').addEventListener('click', async () => {
       ...configPayload(),
       condicion_texto: $('#opt-condicion').value.trim(),
       title_template: $('#opt-title').value,
-      chapter: $('#opt-chapter').value,
       start_number: Number($('#opt-start').value || 1),
       font_name: $('#opt-font').value,
       font_size: Number($('#opt-size').value || 8),

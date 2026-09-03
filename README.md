@@ -24,8 +24,17 @@ entra, las columnas se reducen proporcionalmente.
 
 Los títulos se insertan como **títulos de Word** (estilo `Título`/`Caption` con un campo
 `SEQ Tabla`), igual que con *Referencias → Insertar título*. Word los numera solo y aparecen en
-*Insertar → Referencia cruzada* para citarlos desde el texto del informe. El número de la primera
-tabla se fija con el campo «Primera tabla n.º» (se emite como `SEQ Tabla \r N`).
+*Insertar → Referencia cruzada* para citarlos desde el texto del informe.
+
+El número entero va dentro del campo, sin texto literal alrededor, así que la numeración es
+automática de punta a punta: si se inserta o borra una tabla, Word renumera el resto. El estilo
+`Título` de Word es azul por defecto; aquí se fuerza a **negro**.
+
+«Primera tabla n.º» controla el arranque:
+
+- Dejado en **1** (por defecto) el campo va sin reinicio, de modo que al pegar las tablas en un
+  informe que ya tiene tablas, Word continúa la numeración de ese informe.
+- Con otro valor, la primera tabla emite `SEQ Tabla \r N` y la cuenta arranca en `N`.
 
 Cada reporte corresponde a **una condición** (`Initial RS`, `Final`, …): para otra condición se
 sube el reporte de esa condición. El texto se toma del reporte y se usa en el título de las
