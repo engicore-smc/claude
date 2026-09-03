@@ -17,6 +17,16 @@ Acceso protegido por una única clave, pensada para un solo usuario.
    editable con un clic sobre ella.
 5. Se genera el **.docx** con una tabla por tramo entre anclajes y su título numerado.
 
+El documento sale en **tabloide horizontal (11×17″)** para que ningún valor se parta en dos
+líneas: los anchos de columna se calculan a partir del texto más largo de cada una y se aplican
+iguales a todas las tablas. El tamaño y la orientación se pueden cambiar; si el contenido no
+entra, las columnas se reducen proporcionalmente.
+
+Los títulos se insertan como **títulos de Word** (estilo `Título`/`Caption` con un campo
+`SEQ Tabla`), igual que con *Referencias → Insertar título*. Word los numera solo y aparecen en
+*Insertar → Referencia cruzada* para citarlos desde el texto del informe. El número de la primera
+tabla se fija con el campo «Primera tabla n.º» (se emite como `SEQ Tabla \r N`).
+
 Cada reporte corresponde a **una condición** (`Initial RS`, `Final`, …): para otra condición se
 sube el reporte de esa condición. El texto se toma del reporte y se usa en el título de las
 tablas.
@@ -68,7 +78,7 @@ entre anclajes).
 | Desnivel [m] | `Span Vert. Proj. (m)` |
 | Flecha en grampa [m] | `Mid Span Sag (m)` |
 | Tiempo [s] | `Wave Time (Sec)` |
-| Tensión kg | `Horz. Tension (daN)` × **1.019716** |
+| Tensión [kg] | `Horz. Tension (daN)` × **1.019716** |
 
 > **Coordenadas del vano.** El vano se calcula con Pitágoras sobre `X Easting (m)` e
 > `Y Northing (m)`, igual que la fórmula de Excel original. Si el reporte trae `Span Length (m)`,

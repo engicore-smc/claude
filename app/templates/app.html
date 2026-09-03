@@ -165,7 +165,7 @@
           </div>
           <div>
             <label class="field" for="opt-size">Tamaño (pt)</label>
-            <input type="number" id="opt-size" value="7" min="5" max="14" step="0.5">
+            <input type="number" id="opt-size" value="8" min="5" max="14" step="0.5">
           </div>
         </div>
         <div class="grid cols-3" style="margin-top:16px">
@@ -205,8 +205,21 @@
               <select id="opt-decsep"><option value=".">Punto (1.5)</option><option value=",">Coma (1,5)</option></select>
             </div>
             <div>
+              <label class="field" for="opt-page">Tamaño de página</label>
+              <select id="opt-page">
+                <option value="tabloide">Tabloide (11×17")</option>
+                <option value="a3">A3</option>
+                <option value="a4">A4</option>
+                <option value="carta">Carta</option>
+                <option value="oficio">Oficio</option>
+              </select>
+            </div>
+            <div>
               <label class="field" for="opt-orient">Orientación</label>
-              <select id="opt-orient"><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select>
+              <select id="opt-orient">
+                <option value="landscape">Horizontal</option>
+                <option value="portrait">Vertical</option>
+              </select>
             </div>
             <div>
               <label class="field" for="opt-trim">Ceros a la derecha</label>

@@ -150,7 +150,7 @@ def test_simple_table_layout(document):
     ]
     assert grid[3][5] == "Tiempo [s]"
     assert grid[3][6:] == [f"{v:g}" for v in fixtures.WAVE_56]
-    assert grid[4][5] == "Tensión kg"
+    assert grid[4][5] == "Tensión [kg]"
     assert grid[4][6:] == [
         "74.44", "73.42", "73.42", "72.4", "72.4", "71.38", "71.38", "70.36", "70.36", "69.34", "69.34",
     ]
@@ -163,7 +163,7 @@ def test_table_with_suspension_repeats_control_block_and_single_tension_row(docu
     assert grid[3][5] == "Tiempo [s]"
     assert grid[4][:6] == ["E6-E8", "83.7103", "E7-E8", "80.9", "-1.09", "Flecha en grampa [m]"]
     assert grid[5][5] == "Tiempo [s]"
-    assert grid[6][5] == "Tensión kg"
+    assert grid[6][5] == "Tensión [kg]"
     # Texto identico al de la tabla 10-5 de referencia.
     assert grid[6][6:] == [
         "120.33", "118.29", "115.23", "113.19", "111.15", "109.11",
@@ -172,7 +172,7 @@ def test_table_with_suspension_repeats_control_block_and_single_tension_row(docu
     assert grid[2][6:] == [f"{v:g}" for v in fixtures.SAG_67]
     assert grid[5][6:] == [f"{v:g}" for v in fixtures.WAVE_78]
     # La tension aparece una sola vez para todo el tramo entre anclajes.
-    assert sum(1 for row in grid if row[5] == "Tensión kg") == 1
+    assert sum(1 for row in grid if row[5] == "Tensión [kg]") == 1
 
 
 def _tc_at(table, row: int, column: int):
@@ -264,3 +264,84 @@ def test_marking_an_endpoint_as_suspension_merges_two_sections(dataset):
     built, _ = analysis.build_sections(dataset, fixtures.CABLE_A, kinds, [0.0])
     assert [s.tramo_label for s in built] == ["E5-E8"]
     assert built[0].intermediate_labels == ["E6", "E7"]
+
+
+# --------------------------------------------------------------------------
+# Titulo como referencia de Word (estilo Titulo + campo SEQ)
+# --------------------------------------------------------------------------
+def _caption_paragraphs(document):
+    return [p for p in document.paragraphs if p.style.name == "Caption"]
+
+
+def test_titles_use_the_caption_style(document):
+    captions = _caption_paragraphs(document)
+    assert len(captions) == 2
+    assert captions[0].text.startswith("Tabla 10-4: Tramo entre las estructuras")
+
+
+def test_titles_carry_a_seq_field_so_word_can_cross_reference_them(document):
+    instructions = [
+        node.text
+        for caption in _caption_paragraphs(document)
+        for node in caption._p.iter(qn("w:instrText"))
+    ]
+    assert len(instructions) == 2
+    # El primero reinicia la numeracion en el numero elegido por el usuario.
+    assert instructions[0].strip() == "SEQ Tabla \\r 4 \\* ARABIC"
+    assert instructions[1].strip() == "SEQ Tabla \\* ARABIC"
+
+
+def test_the_number_is_cached_so_it_shows_before_pressing_f9(document):
+    captions = _caption_paragraphs(document)
+    assert captions[0].text == (
+        "Tabla 10-4: Tramo entre las estructuras N°5 y N°6 en condición Initial RS"
+    )
+    assert captions[1].text.startswith("Tabla 10-5:")
+
+
+def test_caption_stays_with_its_table(document):
+    for caption in _caption_paragraphs(document):
+        assert caption.paragraph_format.keep_with_next is True
+
+
+# --------------------------------------------------------------------------
+# Pagina y anchos de columna
+# --------------------------------------------------------------------------
+def test_default_page_is_tabloid_landscape(document):
+    from docx.shared import Emu
+
+    section = document.sections[0]
+    assert round(Emu(section.page_width).cm, 1) == 43.2   # 17 pulgadas
+    assert round(Emu(section.page_height).cm, 1) == 27.9  # 11 pulgadas
+    assert section.page_width > section.page_height
+
+
+def test_columns_are_wide_enough_for_their_widest_value(sections):
+    options = docx_writer.DocOptions()
+    temps = [float(t) for t in fixtures.TEMPS]
+    widths = docx_writer.measure_columns(sections, temps, options)
+    assert len(widths) == 6 + len(temps)
+    # "Flecha en grampa [m]" es el texto mas ancho de la columna del metodo.
+    assert widths[5] >= docx_writer._width_for(len("Flecha en grampa [m]"), options.font_size) - 1e-9
+    # La columna de la luz equivalente debe caber "86.4359".
+    assert widths[1] >= docx_writer._width_for(len("Equivalente"), options.font_size) - 1e-9
+
+
+def test_widths_fit_the_printable_area(sections):
+    options = docx_writer.DocOptions()
+    temps = [float(t) for t in fixtures.TEMPS]
+    widths = docx_writer.measure_columns(sections, temps, options)
+    available = 43.18 - 2 * options.margin_cm
+    assert sum(widths) <= available, "las columnas no entran en el tabloide horizontal"
+    assert docx_writer.fit_widths(widths, available) == widths  # no hace falta encoger
+
+
+def test_narrow_pages_shrink_the_columns_proportionally():
+    widths = docx_writer.fit_widths([10.0, 10.0, 20.0], 20.0)
+    assert sum(widths) == pytest.approx(20.0)
+    assert widths == pytest.approx([5.0, 5.0, 10.0])
+
+
+def test_table_layout_is_fixed_so_word_respects_the_widths(document):
+    layout = document.tables[0]._tbl.tblPr.find(qn("w:tblLayout"))
+    assert layout is not None and layout.get(qn("w:type")) == "fixed"

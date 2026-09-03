@@ -115,8 +115,9 @@ class GenerateRequest(ConfigRequest):
     chapter: str = "10"
     start_number: int = 1
     font_name: str = "Calibri"
-    font_size: float = 7.0
-    landscape: bool = False
+    font_size: float = 8.0
+    page_size: str = "tabloide"
+    landscape: bool = True
     decimal_separator: str = "."
     decimals: dict[str, int] = Field(default_factory=dict)
     trim_trailing_zeros: bool = True
@@ -353,6 +354,7 @@ def generate(payload: GenerateRequest):
         start_number=payload.start_number,
         font_name=payload.font_name or "Calibri",
         font_size=max(5.0, min(float(payload.font_size), 14.0)),
+        page_size=payload.page_size if payload.page_size in docx_writer.PAGE_SIZES else "tabloide",
         landscape=payload.landscape,
         decimal_separator="," if payload.decimal_separator == "," else ".",
         decimals=payload.decimals,
