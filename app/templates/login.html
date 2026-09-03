@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Acceso · Anexos de tensado PLS-CADD</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="login-wrap">
+    <form class="login-card" method="post" action="/login">
+      <h1>Anexos de tensado</h1>
+      <p class="sub">Generador de tablas de tensado a partir de reportes PLS-CADD.</p>
+
+      {% if misconfigured %}
+        <div class="notice err">
+          Falta configurar la variable de entorno <strong>APP_PASSWORD</strong> en el servidor.
+          Sin ella la aplicación no puede iniciar sesión.
+        </div>
+      {% else %}
+        {% if error %}<div class="notice err">{{ error }}</div>{% endif %}
+        <label class="field" for="password">Clave de acceso</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" autofocus required>
+        <div class="actions">
+          <button class="primary" type="submit" style="width:100%">Entrar</button>
+        </div>
+      {% endif %}
+    </form>
+  </div>
+</body>
+</html>

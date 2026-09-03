@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Anexos de tensado PLS-CADD</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="topbar">
+    <h1>Anexos de tensado</h1>
+    <span class="tag">PLS-CADD → Word</span>
+    <span class="spacer"></span>
+    <a href="/logout">Cerrar sesión</a>
+  </div>
+
+  <main>
+    <div id="global-error"></div>
+
+    <!-- ------------------------------------------------ 1. Reportes -->
+    <section class="step">
+      <header>
+        <span class="num">1</span>
+        <h2>Cargar reportes</h2>
+        <span class="hint">Formato .xlsx, .xls o .csv</span>
+      </header>
+      <div class="body">
+        <form id="upload-form">
+          <div class="grid cols-3">
+            <div class="drop" data-for="sag">
+              <h3>Flecha y tensión por temperatura</h3>
+              <p>Base de datos principal: una fila por vano y temperatura (flecha, tensión, tiempo de onda).</p>
+              <input type="file" name="sag" accept=".xlsx,.xlsm,.xls,.csv" required>
+              <div class="picked"></div>
+            </div>
+            <div class="drop" data-for="cable">
+              <h3>Flecha y tensión (tipo de cable)</h3>
+              <p>Reporte que trae <code>Cable Load Vert Load (daN/m)</code> para identificar el conductor de cada set.</p>
+              <input type="file" name="cable" accept=".xlsx,.xlsm,.xls,.csv" required>
+              <div class="picked"></div>
+            </div>
+            <div class="drop" data-for="structures">
+              <h3>Listado de estructuras</h3>
+              <p>Staking table con número, nombre y coordenadas de cada estructura (para el vano y el tipo).</p>
+              <input type="file" name="structures" accept=".xlsx,.xlsm,.xls,.csv" required>
+              <div class="picked"></div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="primary" type="submit" id="btn-upload">Analizar reportes</button>
+            <span class="muted" id="upload-status"></span>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ 2. Mapeo -->
+    <section class="step" id="step-mapping" hidden>
+      <header>
+        <span class="num">2</span>
+        <h2>Columnas detectadas</h2>
+        <span class="spacer"></span>
+        <span id="mapping-state"></span>
+      </header>
+      <div class="body">
+        <p class="muted">Se detectaron automáticamente. Ajusta cualquiera si tu reporte usa otros nombres.</p>
+        <details class="advanced" id="mapping-details">
+          <summary>Ver y corregir el mapeo de columnas</summary>
+          <div id="mapping-groups"></div>
+          <div class="actions">
+            <button class="ghost" type="button" id="btn-remap">Aplicar mapeo</button>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ 3. Filtros -->
+    <section class="step" id="step-filters" hidden>
+      <header>
+        <span class="num">3</span>
+        <h2>Filtros</h2>
+        <span class="hint">Conductor, condición y temperaturas</span>
+      </header>
+      <div class="body">
+        <div class="grid cols-2">
+          <div>
+            <label class="field" for="cable-select">Conductor · Cable Load Vert Load (daN/m)</label>
+            <select id="cable-select"></select>
+            <p class="muted" style="margin:6px 0 0">Es el valor único que identifica el tipo de cable.</p>
+          </div>
+          <div>
+            <label class="field" for="condition-select">Condición</label>
+            <select id="condition-select"></select>
+            <p class="muted" style="margin:6px 0 0">Se usa como filtro y en el título de cada tabla.</p>
+          </div>
+        </div>
+        <div style="margin-top:18px">
+          <label class="field">Temperaturas a incluir</label>
+          <div class="chips" id="temp-chips"></div>
+          <div class="actions" style="margin-top:10px">
+            <button class="ghost small" type="button" id="temps-all">Todas</button>
+            <button class="ghost small" type="button" id="temps-none">Ninguna</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ 4. Estructuras -->
+    <section class="step" id="step-structures" hidden>
+      <header>
+        <span class="num">4</span>
+        <h2>Anclaje o suspensión</h2>
+        <span class="hint">Preseleccionado por <code>_A_</code> / <code>_S_</code> en el nombre</span>
+        <span class="spacer"></span>
+        <span id="structures-count" class="muted"></span>
+      </header>
+      <div class="body">
+        <div class="actions" style="margin:0 0 12px">
+          <button class="ghost small" type="button" id="kinds-reset">Restaurar detección automática</button>
+        </div>
+        <div class="table-scroll" style="max-height:340px; overflow-y:auto">
+          <table class="data" id="structures-table">
+            <thead><tr><th>Estructura</th><th>Nombre</th><th>Coordenadas</th><th>Tipo</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ 5. Vista previa -->
+    <section class="step" id="step-preview" hidden>
+      <header>
+        <span class="num">5</span>
+        <h2>Vista previa de los tramos</h2>
+        <span class="spacer"></span>
+        <button class="ghost small" type="button" id="btn-preview">Actualizar</button>
+      </header>
+      <div class="body">
+        <div id="preview-warnings"></div>
+        <div class="table-scroll">
+          <table class="data" id="preview-table">
+            <thead>
+              <tr>
+                <th>Tramo</th><th>STR inicio</th><th>STR fin</th><th>Suspensiones intermedias</th>
+                <th class="num">Luz equiv. [m]</th><th class="num">Vano [m]</th>
+                <th class="num">Desnivel [m]</th><th>Conductor</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------ 6. Documento -->
+    <section class="step" id="step-generate" hidden>
+      <header>
+        <span class="num">6</span>
+        <h2>Generar anexo Word</h2>
+      </header>
+      <div class="body">
+        <div class="grid cols-4">
+          <div>
+            <label class="field" for="opt-chapter">Capítulo</label>
+            <input type="text" id="opt-chapter" value="10">
+          </div>
+          <div>
+            <label class="field" for="opt-start">Primera tabla n.º</label>
+            <input type="number" id="opt-start" value="1" min="1">
+          </div>
+          <div>
+            <label class="field" for="opt-font">Tipografía</label>
+            <select id="opt-font">
+              <option>Calibri</option><option>Arial</option><option>Times New Roman</option><option>Verdana</option>
+            </select>
+          </div>
+          <div>
+            <label class="field" for="opt-size">Tamaño (pt)</label>
+            <input type="number" id="opt-size" value="7" min="5" max="14" step="0.5">
+          </div>
+        </div>
+        <div class="grid cols-2" style="margin-top:16px">
+          <div>
+            <label class="field" for="opt-doc-title">Título del documento</label>
+            <input type="text" id="opt-doc-title" value="Anexo - Tablas de tensado">
+          </div>
+          <div>
+            <label class="field" for="opt-prefix">Prefijo de estructura</label>
+            <input type="text" id="opt-prefix" value="E" maxlength="6">
+          </div>
+        </div>
+        <div style="margin-top:16px">
+          <label class="field" for="opt-title">Plantilla del título de cada tabla</label>
+          <input type="text" id="opt-title" value="Tabla {numero}: Tramo entre las estructuras N°{inicio} y N°{fin} en condición {condicion}">
+          <p class="muted" style="margin:6px 0 0">
+            Variables: <code>{numero}</code>, <code>{inicio}</code>, <code>{fin}</code>, <code>{tramo}</code>, <code>{condicion}</code>.
+          </p>
+        </div>
+
+        <details class="advanced">
+          <summary>Formato numérico y página</summary>
+          <div class="grid cols-4" style="margin-top:12px">
+            <div><label class="field" for="dec-ruling_span">Luz equiv.</label><input type="number" id="dec-ruling_span" value="4" min="0" max="6"></div>
+            <div><label class="field" for="dec-vano">Vano</label><input type="number" id="dec-vano" value="1" min="0" max="6"></div>
+            <div><label class="field" for="dec-desnivel">Desnivel</label><input type="number" id="dec-desnivel" value="2" min="0" max="6"></div>
+            <div><label class="field" for="dec-sag">Flecha</label><input type="number" id="dec-sag" value="2" min="0" max="6"></div>
+            <div><label class="field" for="dec-wave">Tiempo</label><input type="number" id="dec-wave" value="2" min="0" max="6"></div>
+            <div><label class="field" for="dec-tension">Tensión</label><input type="number" id="dec-tension" value="2" min="0" max="6"></div>
+            <div>
+              <label class="field" for="opt-decsep">Separador decimal</label>
+              <select id="opt-decsep"><option value=".">Punto (1.5)</option><option value=",">Coma (1,5)</option></select>
+            </div>
+            <div>
+              <label class="field" for="opt-orient">Orientación</label>
+              <select id="opt-orient"><option value="portrait">Vertical</option><option value="landscape">Horizontal</option></select>
+            </div>
+            <div>
+              <label class="field" for="opt-trim">Ceros a la derecha</label>
+              <select id="opt-trim">
+                <option value="1">Quitar (4.3)</option>
+                <option value="0">Mantener (4.30)</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <div class="actions">
+          <button class="primary" type="button" id="btn-generate">Generar reporte Word</button>
+          <span class="muted" id="generate-status"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
