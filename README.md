@@ -109,7 +109,8 @@ entre anclajes).
 Pide lo mínimo: los tres reportes y el conductor. Todo lo demás usa los valores por defecto
 (todas las temperaturas, tipos de estructura detectados automáticamente, tabloide horizontal).
 
-1. Crear el bot con [@BotFather](https://t.me/BotFather) y copiar el token.
+1. Crear el bot con [@BotFather](https://t.me/BotFather) y copiar el token, o reutilizar uno que
+   ya exista: `/mybots` → elegir el bot → **API Token**.
 2. Enviarle los tres XLSX **en cualquier orden**: se reconocen por sus columnas, no por el nombre
    del archivo.
 3. Elegir el conductor en los botones que aparecen.
@@ -129,7 +130,21 @@ para que no quede abierto a cualquiera:
 | `BOT_PASSWORD` | Clave compartida. Se desbloquea con `/clave TU_CLAVE` y dura hasta que se reinicie el contenedor. |
 
 Si escribes al bot sin autorización, te responde con tu ID de Telegram para que puedas añadirlo a
-`TELEGRAM_ALLOWED_USERS`.
+`TELEGRAM_ALLOWED_USERS`. Para averiguar tu ID la primera vez: despliega con un `BOT_PASSWORD`
+cualquiera, escríbele `/start` y te contestará con tu ID.
+
+### Reutilizar un bot que ya existe
+
+Funciona sin más, con dos avisos:
+
+- **Un token, un solo proceso.** Telegram solo admite un consumidor de `getUpdates` por token: si el
+  bot anterior sigue corriendo en otro sitio, los dos se quitarán los mensajes o dará error 409.
+  Hay que apagar el anterior o usar un bot distinto.
+- **Webhook.** Si el bot tenía un webhook configurado, el long polling no arrancaría. Al iniciar se
+  borra automáticamente (`deleteWebhook`), así que no hay que hacer nada.
+
+El menú de comandos también se registra solo al arrancar; no hace falta el `/setcommands` de
+BotFather.
 
 ---
 

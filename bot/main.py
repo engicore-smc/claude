@@ -5,7 +5,7 @@ import asyncio
 import logging
 from io import BytesIO
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ChatAction, ParseMode
 from telegram.ext import (
     Application,
@@ -178,6 +178,28 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
+COMANDOS = [
+    BotCommand("nuevo", "Empezar de cero"),
+    BotCommand("estado", "Ver qué reportes faltan"),
+    BotCommand("conductor", "Elegir otro conductor"),
+    BotCommand("ayuda", "Cómo funciona"),
+    BotCommand("salir", "Cerrar sesión"),
+]
+
+
+async def _post_init(application: Application) -> None:
+    """Prepara un bot que puede venir usado de antes.
+
+    Si el bot tenia un webhook puesto, getUpdates responde 409 y el long
+    polling no arranca nunca; por eso se borra primero. De paso se registra el
+    menu de comandos, sin tener que tocar BotFather.
+    """
+    await application.bot.delete_webhook(drop_pending_updates=True)
+    await application.bot.set_my_commands(COMANDOS)
+    yo = await application.bot.get_me()
+    logger.info("Conectado como @%s (id %s)", yo.username, yo.id)
+
+
 def build_application() -> Application:
     if not settings.token:
         raise SystemExit("Falta la variable de entorno TELEGRAM_TOKEN.")
@@ -187,7 +209,7 @@ def build_application() -> Application:
             "sin ninguna de las dos el bot quedaria abierto a cualquiera."
         )
 
-    application = Application.builder().token(settings.token).build()
+    application = Application.builder().token(settings.token).post_init(_post_init).build()
     application.add_handler(CommandHandler("clave", cmd_clave))
     application.add_handler(CommandHandler(["start", "ayuda", "help"], cmd_start))
     application.add_handler(CommandHandler("nuevo", cmd_nuevo))

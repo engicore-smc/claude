@@ -223,3 +223,40 @@ def test_it_also_refuses_without_a_token(monkeypatch):
     finally:
         importlib.reload(config)
         importlib.reload(main)
+
+
+# --------------------------------------------------------------------------
+# Arranque sobre un bot reutilizado
+# --------------------------------------------------------------------------
+def test_startup_clears_a_leftover_webhook_and_registers_the_menu(monkeypatch):
+    """Un bot que ya tenia webhook devuelve 409 en getUpdates: hay que borrarlo."""
+    import asyncio
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("TELEGRAM_TOKEN", "123:fake")
+    monkeypatch.setenv("BOT_PASSWORD", "x")
+    from bot import config, main
+
+    importlib.reload(config)
+    importlib.reload(main)
+    try:
+        llamadas = []
+
+        class FakeBot:
+            async def delete_webhook(self, drop_pending_updates=False):
+                llamadas.append(("delete_webhook", drop_pending_updates))
+
+            async def set_my_commands(self, comandos):
+                llamadas.append(("set_my_commands", [c.command for c in comandos]))
+
+            async def get_me(self):
+                return SimpleNamespace(username="bot_de_prueba", id=1)
+
+        asyncio.run(main._post_init(SimpleNamespace(bot=FakeBot())))
+
+        assert ("delete_webhook", True) in llamadas
+        comandos = dict(llamadas)["set_my_commands"]
+        assert comandos == ["nuevo", "estado", "conductor", "ayuda", "salir"]
+    finally:
+        importlib.reload(config)
+        importlib.reload(main)
