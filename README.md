@@ -1,9 +1,17 @@
 # Anexos de tensado PLS-CADD
 
-Aplicación web que toma los reportes en Excel de **PLS-CADD**, los filtra y devuelve un
-**anexo en Word** con las tablas de tensado listas para copiar y pegar en el informe.
+Toma los reportes en Excel de **PLS-CADD**, los filtra y devuelve un **anexo en Word** con las
+tablas de tensado listas para copiar y pegar en el informe.
 
-Acceso protegido por una única clave, pensada para un solo usuario.
+Hay dos formas de usarlo sobre el mismo núcleo de cálculo:
+
+| | Para qué sirve | Cómo se ejecuta |
+|---|---|---|
+| **Aplicación web** | Control total: mapeo de columnas, temperaturas, tipo de cada estructura, formato del documento | `uvicorn app.main:app` |
+| **Bot de Telegram** | Lo rápido: mandar los tres XLSX, elegir el conductor y recibir el anexo | `python -m bot.main` |
+
+El cálculo vive en `app/` (`parsing`, `analysis`, `docx_writer`) y las dos interfaces lo comparten,
+así que ambas producen exactamente el mismo documento.
 
 ---
 
@@ -96,6 +104,35 @@ entre anclajes).
 
 ---
 
+## Bot de Telegram
+
+Pide lo mínimo: los tres reportes y el conductor. Todo lo demás usa los valores por defecto
+(todas las temperaturas, tipos de estructura detectados automáticamente, tabloide horizontal).
+
+1. Crear el bot con [@BotFather](https://t.me/BotFather) y copiar el token.
+2. Enviarle los tres XLSX **en cualquier orden**: se reconocen por sus columnas, no por el nombre
+   del archivo.
+3. Elegir el conductor en los botones que aparecen.
+4. Recibir el `.docx`.
+
+Comandos: `/nuevo` empieza de cero · `/estado` muestra qué falta · `/conductor` vuelve a elegir
+cable sin resubir nada · `/salir` cierra la sesión.
+
+### Acceso
+
+Hay que definir **al menos una** de estas dos variables; sin ninguna el bot se niega a arrancar,
+para que no quede abierto a cualquiera:
+
+| Variable | Descripción |
+|---|---|
+| `TELEGRAM_ALLOWED_USERS` | IDs de Telegram autorizados, separados por comas. Es lo más seguro y sobrevive a los reinicios. |
+| `BOT_PASSWORD` | Clave compartida. Se desbloquea con `/clave TU_CLAVE` y dura hasta que se reinicie el contenedor. |
+
+Si escribes al bot sin autorización, te responde con tu ID de Telegram para que puedas añadirlo a
+`TELEGRAM_ALLOWED_USERS`.
+
+---
+
 ## Despliegue en Railway
 
 1. Crear un proyecto nuevo desde este repositorio. Railway detecta Python con Nixpacks y usa
@@ -113,6 +150,17 @@ entre anclajes).
    | `COOKIE_SECURE` | no | `0` solo para desarrollo local por HTTP. |
 
 3. Generar un dominio público. El healthcheck es `/health`.
+
+### El bot, como segundo servicio
+
+El bot no escucha en ningún puerto (usa long polling), así que va en un servicio aparte del mismo
+repositorio:
+
+1. **New → GitHub Repo**, el mismo repositorio y la misma rama.
+2. En **Settings → Deploy → Custom Start Command**, poner `python -m bot.main`. (También se puede
+   apuntar **Config-as-code** a `railway.bot.json`, que ya trae ese arranque.)
+3. En **Variables**: `TELEGRAM_TOKEN` y `TELEGRAM_ALLOWED_USERS` o `BOT_PASSWORD`. Este servicio no
+   necesita `APP_PASSWORD` ni dominio público.
 
 Un único worker alcanza para el plan de 5 USD: los reportes se procesan en memoria y no se
 guarda nada en disco. Los datos subidos se descartan al vencer el TTL o al reiniciar el
@@ -157,7 +205,12 @@ app/
   docx_writer.py  generación del Word con celdas combinadas
   templates/      login y aplicación
   static/         estilos y JavaScript
+bot/
+  main.py         comandos y handlers de Telegram
+  flow.py         lógica del bot, sin nada de Telegram (identifica reportes, arma respuestas)
+  auth.py         lista de IDs y clave compartida
+  config.py       variables de entorno del bot
 scripts/
   make_sample_data.py   genera reportes de ejemplo
-tests/                  pruebas del flujo completo
+tests/                  pruebas de los dos frontales
 ```

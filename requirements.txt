@@ -8,3 +8,4 @@ pandas==3.0.5
 numpy==2.4.6
 openpyxl==3.1.5
 python-docx==1.2.0
+python-telegram-bot==21.10
