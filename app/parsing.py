@@ -142,9 +142,9 @@ REPORT_FIELDS: dict[str, tuple[FieldSpec, ...]] = {
 }
 
 REPORT_LABELS = {
-    "sag": "Reporte de flecha y tension por temperatura",
-    "cable": "Reporte de flecha y tension (tipo de cable)",
-    "structures": "Listado de estructuras / staking table",
+    "sag": "Reporte tensado",
+    "cable": "Reporte flecha y tensión",
+    "structures": "Reporte Staking table",
 }
 
 

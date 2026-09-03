@@ -25,9 +25,9 @@ tablas.
 
 | Reporte | Columnas que se usan |
 |---|---|
-| **Flecha y tensión por temperatura** (base principal) | `Span From Str.`, `Span To Str.`, `Span From Set`, `Span To Set`, `Sec. No.`, `Ruling Span (m)`, `Span Length (m)`, `Span Vert. Proj. (m)`, `Mid Span Sag (m)`, `Horz. Tension (daN)`, `Wave Time (Sec)`, `Temp. (deg C)`, `Cable Condition` |
-| **Flecha y tensión (tipo de cable)** | Las mismas de estructura y set, más `Cable Load Vert Load (daN/m)` y `Weather Case Description` |
-| **Listado de estructuras / staking table** | `Structure Number`, `Structure Name`, `Structure Description`, `X Easting (m)`, `Y Northing (m)` |
+| **Reporte tensado** (base principal) | `Span From Str.`, `Span To Str.`, `Span From Set`, `Span To Set`, `Sec. No.`, `Ruling Span (m)`, `Span Length (m)`, `Span Vert. Proj. (m)`, `Mid Span Sag (m)`, `Horz. Tension (daN)`, `Wave Time (Sec)`, `Temp. (deg C)`, `Cable Condition` |
+| **Reporte flecha y tensión** | Las mismas de estructura y set, más `Cable Load Vert Load (daN/m)` y `Weather Case Description` |
+| **Reporte Staking table** | `Structure Number`, `Structure Name`, `Structure Description`, `X Easting (m)`, `Y Northing (m)` |
 
 El tipo de cable se asocia cruzando `(Span From Str., Span To Str., Span From Set, Span To Set)`
 entre los dos primeros reportes; el valor de `Cable Load Vert Load` se convierte después en el

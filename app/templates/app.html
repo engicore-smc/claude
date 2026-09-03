@@ -30,20 +30,17 @@
         <form id="upload-form">
           <div class="grid cols-3">
             <div class="drop" data-for="sag">
-              <h3>Flecha y tensión por temperatura</h3>
-              <p>Base de datos principal: una fila por vano y temperatura (flecha, tensión, tiempo de onda).</p>
+              <h3>Reporte tensado</h3>
               <input type="file" name="sag" accept=".xlsx,.xlsm,.xls,.csv" required>
               <div class="picked"></div>
             </div>
             <div class="drop" data-for="cable">
-              <h3>Flecha y tensión (tipo de cable)</h3>
-              <p>Reporte que trae <code>Cable Load Vert Load (daN/m)</code> para identificar el conductor de cada set.</p>
+              <h3>Reporte flecha y tensión</h3>
               <input type="file" name="cable" accept=".xlsx,.xlsm,.xls,.csv" required>
               <div class="picked"></div>
             </div>
             <div class="drop" data-for="structures">
-              <h3>Listado de estructuras</h3>
-              <p>Staking table con número, nombre y coordenadas de cada estructura (para el vano y el tipo).</p>
+              <h3>Reporte Staking table</h3>
               <input type="file" name="structures" accept=".xlsx,.xlsm,.xls,.csv" required>
               <div class="picked"></div>
             </div>

@@ -153,8 +153,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 }
 .drop.filled { border-style: solid; border-color: var(--ok); background: var(--ok-soft); }
 .drop.dragover { border-color: var(--accent); background: var(--accent-soft); }
-.drop h3 { margin: 0 0 4px; font-size: 13.5px; }
-.drop p { margin: 0 0 10px; font-size: 12.5px; color: var(--muted); }
+.drop h3 { margin: 0 0 11px; font-size: 14px; }
 .drop input[type=file] { font-size: 12.5px; width: 100%; }
 .drop .picked { font-size: 12.5px; color: var(--ok); font-weight: 600; margin-top: 8px; word-break: break-all; }
 
