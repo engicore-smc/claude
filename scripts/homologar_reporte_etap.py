@@ -19,7 +19,11 @@ Diferencias de estructura que se corrigen (ver README del script):
      genera ruido (46.400001525878906). Se normalizan al decimal mas corto
      que representa el mismo float32 (46.4), como hacia 21.x.
 
-Uso:  python3 homologar.py entrada.xls salida.xls
+La hoja homologada se llama "Sheet1" porque es el nombre que consume la
+automatizacion (pd.read_excel(..., sheet_name="Sheet1")). El reporte original
+de 24.x se conserva en la hoja "ETAP24_original" solo como referencia.
+
+Uso:  python3 homologar.py entrada.xls salida.xls [hoja_origen] [hoja_plantilla]
 """
 import sys
 import struct
@@ -217,29 +221,30 @@ def build_homologada(tpl, src, plan, w_sheet, styles):
             w_sheet.merge(o1, o2 - 1, c1, c2 - 1)
 
 
-def main(inp, outp):
+def main(inp, outp, src_name='Sheet1', tpl_name='Hoja1'):
     rb = xlrd.open_workbook(inp, formatting_info=True)
     writer = XLWTWriter()
     process(XLRDReader(rb, 'in.xls'), writer)
     styles = writer.style_list
 
-    src = rb.sheet_by_name('Sheet1')            # datos nuevos (ETAP 24.x)
-    tpl = rb.sheet_by_name('Hoja1')             # estructura de referencia (21.x)
+    src = rb.sheet_by_name(src_name)            # datos nuevos (ETAP 24.x)
+    tpl = rb.sheet_by_name(tpl_name)            # estructura de referencia (21.x)
 
     L = layout(src)
     plan = build_plan(src, L)
 
     wb = xlwt.Workbook(encoding='utf-8', style_compression=0)
-    ws_src = wb.add_sheet('Sheet1', cell_overwrite_ok=True)
-    ws_out = wb.add_sheet('Hoja1', cell_overwrite_ok=True)
+    # "Sheet1" es el nombre que lee la automatizacion: ahi va la hoja homologada.
+    ws_out = wb.add_sheet('Sheet1', cell_overwrite_ok=True)
+    ws_src = wb.add_sheet('ETAP24_original', cell_overwrite_ok=True)
 
-    copy_sheet_verbatim(rb, src, ws_src, styles)
     build_homologada(tpl, src, plan, ws_out, styles)
+    copy_sheet_verbatim(rb, src, ws_src, styles)
 
     wb.save(outp)
-    print('OK -> %s  (%d conductores, %d rods, %d filas en Hoja1)'
+    print('OK -> %s  (%d conductores, %d rods, %d filas en Sheet1)'
           % (outp, len(L['conductors']), len(L['rods']), len(plan)))
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2])
+    main(*sys.argv[1:])
