@@ -125,6 +125,8 @@ CABLE_FIELDS: tuple[FieldSpec, ...] = (
     FieldSpec("cable_vert_load", "Cable Load Vert Load (daN/m)", _n("Cable Load Vert Load (daN/m)", "Cable Load Vert Load", "Vert Load (daN/m)"), numeric=True),
     # Permite descartar los casos con hielo, que alteran la carga vertical.
     FieldSpec("weather_case", "Weather Case Description", _n("Weather Case Description", "Weather Case", "Wc Description"), required=False),
+    # El número del caso climático empareja con las columnas 'Weight Span LC# N'.
+    FieldSpec("weather_case_no", "Weather Case #", _n("Weather Case #", "Weather Case No", "Wc #"), required=False),
 )
 
 STRUCTURE_FIELDS: tuple[FieldSpec, ...] = (
@@ -135,17 +137,41 @@ STRUCTURE_FIELDS: tuple[FieldSpec, ...] = (
     FieldSpec("coord_y", "Coordenada Y (para el vano)", _n("Y Northing (m)", "Y (m)", "Northing (m)", "Northing", "Norte", "Y"), numeric=True),
 )
 
+# Reporte de vanos viento / vanos peso, para el modulo de cargas mecanicas.
+# Las columnas "Weight Span LC# N (m)" son variables en numero y se detectan
+# aparte, con weight_span_columns().
+SPAN_FIELDS: tuple[FieldSpec, ...] = (
+    FieldSpec("structure_number", "Str. No.", _n("Str. No.", "Structure Number", "Str Number", "Structure No")),
+    FieldSpec("wind_span", "Wind Span (m)", _n("Wind Span (m)", "Wind Span"), numeric=True),
+    FieldSpec("structure_file", "Structure File Name", _n("Structure File Name", "Structure Name"), required=False),
+)
+
 REPORT_FIELDS: dict[str, tuple[FieldSpec, ...]] = {
     "sag": SAG_FIELDS,
     "cable": CABLE_FIELDS,
     "structures": STRUCTURE_FIELDS,
+    "spans": SPAN_FIELDS,
 }
 
 REPORT_LABELS = {
     "sag": "Reporte tensado",
     "cable": "Reporte flecha y tensión",
     "structures": "Reporte Staking table",
+    "spans": "Reporte vanos viento / vanos peso",
 }
+
+
+WEIGHT_SPAN_RE = re.compile(r"weight span lc\s*(\d+)")
+
+
+def weight_span_columns(columns: list[str]) -> dict[int, str]:
+    """Localiza las columnas 'Weight Span LC# N (m)' y devuelve {N: columna}."""
+    found: dict[int, str] = {}
+    for name in columns:
+        match = WEIGHT_SPAN_RE.search(normalize(name))
+        if match:
+            found[int(match.group(1))] = name
+    return found
 
 
 # --------------------------------------------------------------------------
