@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Herramientas PLS-CADD</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="topbar">
+    <h1>Herramientas PLS-CADD</h1>
+    <span class="spacer"></span>
+    <a href="/logout">Cerrar sesión</a>
+  </div>
+
+  <main>
+    <p class="muted" style="margin:4px 0 20px">Elige con qué quieres trabajar.</p>
+    <div class="tools">
+      <a class="tool" href="/tensado">
+        <div class="tool-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M6 9v22M34 9v22"/><path d="M6 12c10 14 18 14 28 0" stroke-dasharray="0 0"/>
+            <path d="M6 20c10 14 18 14 28 0" opacity=".55"/>
+          </svg>
+        </div>
+        <h2>Tablas de tensado</h2>
+        <p>Genera el anexo en Word con las tablas de flecha, tiempo y tensión por tramo entre anclajes.</p>
+        <span class="tool-go">Abrir →</span>
+      </a>
+
+      <a class="tool" href="/cargas">
+        <div class="tool-icon" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M20 5v30"/><path d="M9 12h22"/><path d="M20 12 9 24M20 12l11 12"/>
+            <path d="M5 35h30"/>
+          </svg>
+        </div>
+        <h2>Cargas mecánicas</h2>
+        <p>Evalúa cargas transversales, verticales y momentos sobre las estructuras, con varias hojas por proyecto.</p>
+        <span class="tool-go">Abrir →</span>
+      </a>
+    </div>
+  </main>
+</body>
+</html>

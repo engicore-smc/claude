@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 from .analysis import Dataset
 from .config import settings
+from .mecanicas import MecDataset
 from .parsing import ColumnMapping, LoadedSheet
 
 
@@ -65,4 +66,47 @@ class JobStore:
             self._jobs.pop(job_id, None)
 
 
+@dataclass
+class MecJob:
+    """Reportes ya leídos del módulo de cargas mecánicas."""
+    job_id: str
+    dataset: MecDataset
+    filenames: dict[str, str]
+    condicion: str = "creep"
+    created_at: float = field(default_factory=time.time)
+    touched_at: float = field(default_factory=time.time)
+
+
+class MecStore:
+    def __init__(self, ttl_seconds: int, max_jobs: int) -> None:
+        self._ttl = ttl_seconds
+        self._max = max_jobs
+        self._jobs: dict[str, MecJob] = {}
+        self._lock = threading.Lock()
+
+    def _purge(self) -> None:
+        now = time.time()
+        for key in [k for k, j in self._jobs.items() if now - j.touched_at > self._ttl]:
+            self._jobs.pop(key, None)
+        while len(self._jobs) > self._max:
+            self._jobs.pop(min(self._jobs, key=lambda k: self._jobs[k].touched_at), None)
+
+    def create(self, dataset: MecDataset, filenames: dict[str, str], condicion: str) -> MecJob:
+        with self._lock:
+            self._purge()
+            job = MecJob(secrets.token_urlsafe(12), dataset, filenames, condicion)
+            self._jobs[job.job_id] = job
+            self._purge()
+            return job
+
+    def get(self, job_id: str) -> MecJob | None:
+        with self._lock:
+            self._purge()
+            job = self._jobs.get(job_id)
+            if job:
+                job.touched_at = time.time()
+            return job
+
+
 store = JobStore(settings.job_ttl_seconds, settings.max_jobs)
+mec_store = MecStore(settings.job_ttl_seconds, settings.max_jobs)

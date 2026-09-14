@@ -3,15 +3,16 @@
 Toma los reportes en Excel de **PLS-CADD**, los filtra y devuelve un **anexo en Word** con las
 tablas de tensado listas para copiar y pegar en el informe.
 
-Hay dos formas de usarlo sobre el mismo núcleo de cálculo:
+La aplicación web reúne dos herramientas, que se eligen al entrar:
 
-| | Para qué sirve | Cómo se ejecuta |
+| Herramienta | Ruta | Para qué sirve |
 |---|---|---|
-| **Aplicación web** | Control total: mapeo de columnas, temperaturas, tipo de cada estructura, formato del documento | `uvicorn app.main:app` |
-| **Bot de Telegram** | Lo rápido: mandar los tres XLSX, elegir el conductor y recibir el anexo | `python -m bot.main` |
+| **Tablas de tensado** | `/tensado` | Anexo en Word con las tablas de flecha, tiempo y tensión por tramo entre anclajes |
+| **Cargas mecánicas** | `/cargas` | Cargas transversales, verticales y momentos sobre las estructuras, con varias hojas por proyecto |
 
-El cálculo vive en `app/` (`parsing`, `analysis`, `docx_writer`) y las dos interfaces lo comparten,
-así que ambas producen exactamente el mismo documento.
+Las tablas de tensado están además en un **bot de Telegram** (`python -m bot.main`), para el caso
+rápido: mandar los tres XLSX, elegir el conductor y recibir el anexo. Comparte el mismo núcleo de
+cálculo, así que produce exactamente el mismo documento.
 
 ---
 
@@ -106,6 +107,54 @@ entre anclajes).
 > `Y Northing (m)`, igual que la fórmula de Excel original. Si el reporte trae `Span Length (m)`,
 > se compara con el vano calculado y se avisa cuando difieren, lo que delata columnas de
 > coordenadas mal asignadas.
+
+---
+
+## Cargas mecánicas
+
+Evalúa las cargas sobre un grupo de estructuras y las compara con los admisibles del poste.
+Un proyecto tiene **varias hojas**, una por grupo de estructuras, como en un libro de Excel.
+
+Necesita dos reportes: el de **flecha y tensión** y el de **vanos viento / vanos peso**. Se
+reconocen solos por sus columnas, en cualquier orden.
+
+### La línea de conductor es el par (set, cable)
+
+El número de set **no identifica al conductor**: en un mismo proyecto el set 1 puede llevar cables
+distintos según la estructura, y el mismo cable puede ir en sets distintos. Por eso el desplegable
+ofrece pares `Set 2 · 0.43 daN/m`, y así una línea no puede mezclar dos conductores.
+
+Además, cada vano se lee por sus **dos extremos**, cada uno con su propio número de set. Una
+estructura que es el final de un vano se filtra por `Span To Set`, no por `Span From Set`.
+
+El **diámetro** y el **peso exacto** salen de un catálogo de conductores del proyecto, no se
+escriben por hoja: el reporte redondea `Cable Load Vert Load` a dos decimales, así que sirve para
+identificar el cable pero no como peso de cálculo.
+
+### Qué se calcula
+
+| Resultado | Fórmula |
+|---|---|
+| Luz viento | Mayor `Wind Span` de las estructuras del grupo |
+| Luz peso | Mayor `Weight Span` de las estructuras, entre los casos climáticos elegidos |
+| Tensión longitudinal | Mayor tensión horizontal (× 1.019716) de los amarres de esa línea |
+| Carga transversal | `FS·Pv·((Nc·Ø + 2e)·10⁻³·luz viento + 0,5·Ncad·Øais·Lais·Naisl·10⁻⁶) + 2·Nc·T·sen(α/2)` |
+| Carga vertical | `n·peso·luz peso + peso aislador·n aisladores + ferretería` |
+| Momento | Por altura de amarre: `(altura efectiva − altura)·carga transversal`, sumado |
+| Admisibles | Transversal `T·n postes`; momento `altura efectiva·T·n postes` |
+
+Las **alturas de amarre se indican por fase**, porque las fases de un mismo set pueden ir a
+alturas distintas.
+
+Las columnas `Weight Span LC# N` se emparejan con el caso climático a través del `Weather Case #`
+del reporte de tensiones, no por su posición.
+
+### Respaldo
+
+El botón **Descargar respaldo** genera un `.xlsx` con el catálogo, las hojas, las líneas y los
+parámetros, más hojas legibles con el resumen y el detalle. Ese archivo se vuelve a subir **junto
+con los reportes** y reconstruye el proyecto entero: los resultados se recalculan y salen
+idénticos.
 
 ---
 
@@ -216,7 +265,10 @@ celdas del Word.
 
 ```
 app/
-  main.py         rutas HTTP y API
+  main.py         rutas HTTP y API de las tablas de tensado
+  mec_routes.py   API de cargas mecánicas
+  mecanicas.py    cálculo de cargas: amarres por extremo, pares (set, cable), momentos
+  mec_backup.py   respaldo en Excel con round-trip
   auth.py         clave única, cookie firmada y límite de intentos
   config.py       variables de entorno
   store.py        trabajos en memoria con vencimiento

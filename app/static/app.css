@@ -269,3 +269,78 @@ table.data th.pick, table.data td.pick { width: 34px; text-align: center; paddin
 table.data td.pick input, table.data th.pick input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
 table.data tr.off td { opacity: .42; }
 table.data tr.off td.pick { opacity: 1; }
+
+/* ------------------------------------------------- selector de herramienta */
+.tools { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+.tool {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 26px 24px 20px;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color .12s, transform .12s, box-shadow .12s;
+}
+.tool:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(16,32,51,.08), 0 14px 34px rgba(16,32,51,.10); }
+.tool-icon {
+  width: 56px; height: 56px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  display: grid; place-items: center;
+  margin-bottom: 15px;
+}
+.tool h2 { font-size: 17px; margin: 0 0 7px; }
+.tool p { margin: 0 0 14px; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.tool-go { font-size: 13.5px; font-weight: 600; color: var(--accent); }
+
+/* ------------------------------------------------------ cargas mecánicas */
+.topbar .back { margin-right: 4px; font-weight: 600; }
+h3.sub { font-size: 14px; margin: 24px 0 6px; padding-top: 18px; border-top: 1px solid var(--border); }
+
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; align-items: flex-end; border-bottom: 1px solid var(--border); padding: 0 0 0 2px; margin: 0 0 20px; }
+.tab {
+  font: inherit; font-size: 13.5px; font-weight: 600;
+  border: 1px solid var(--border); border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: var(--surface-2); color: var(--muted);
+  padding: 8px 14px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: -1px;
+}
+.tab.on { background: #fff; color: var(--accent); border-color: var(--border); border-bottom: 1px solid #fff; }
+.tab .x { font-weight: 700; opacity: .45; font-size: 15px; line-height: 1; }
+.tab .x:hover { opacity: 1; color: var(--danger); }
+.tab.add { background: transparent; border: 1px dashed var(--border-strong); border-bottom: 1px dashed var(--border-strong); border-radius: 8px; color: var(--accent); }
+
+.linea {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 14px;
+  margin-bottom: 12px;
+  background: var(--surface-2);
+}
+.linea > .cab { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
+.linea > .cab > div { flex: 1 1 150px; }
+.linea > .cab > div.ancho { flex: 2 1 260px; }
+.alturas { display: flex; flex-wrap: wrap; gap: 8px; }
+.alturas > div { width: 96px; }
+.alturas label { font-size: 11.5px; color: var(--muted); display: block; margin-bottom: 3px; }
+
+.bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; min-width: 54px; }
+.bar > i { display: block; height: 100%; background: var(--ok); }
+.bar.alto > i { background: var(--warn); }
+.bar.pasa > i { background: var(--danger); }
+
+.res-cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 16px; }
+.res-card { border: 1px solid var(--border); border-radius: 9px; padding: 13px 15px; background: #fff; }
+.res-card .k { font-size: 12px; color: var(--muted); font-weight: 600; }
+.res-card .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 3px 0 6px; }
+.res-card .d { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.btn-x { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 2px 6px; }
+.btn-x:hover { color: var(--danger); }
+
+.uso { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.uso > span { font-variant-numeric: tabular-nums; font-size: 12.5px; min-width: 46px; text-align: right; }

@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Cargas mecánicas · PLS-CADD</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div class="topbar">
+    <a href="/" class="back">← Herramientas</a>
+    <h1>Cargas mecánicas</h1>
+    <span class="spacer"></span>
+    <a href="/logout">Cerrar sesión</a>
+  </div>
+
+  <main>
+    <div id="global-error"></div>
+
+    <!-- -------------------------------------------- 1. Archivos -->
+    <section class="step">
+      <header>
+        <span class="num">1</span>
+        <h2>Cargar archivos</h2>
+        <span class="hint">Los reportes se reconocen solos, en cualquier orden</span>
+      </header>
+      <div class="body">
+        <div class="grid cols-2">
+          <div class="drop" data-for="reportes">
+            <h3>Reportes de PLS-CADD</h3>
+            <p class="muted" style="margin:0 0 10px;font-size:12.5px">
+              Reporte flecha y tensión + reporte de vanos viento / vanos peso.
+            </p>
+            <input type="file" id="file-reportes" accept=".xlsx,.xlsm,.xls,.csv" multiple>
+            <div class="picked"></div>
+          </div>
+          <div class="drop" data-for="respaldo">
+            <h3>Respaldo (opcional)</h3>
+            <p class="muted" style="margin:0 0 10px;font-size:12.5px">
+              Un respaldo descargado antes: recupera hojas, conductores y parámetros.
+            </p>
+            <input type="file" id="file-respaldo" accept=".xlsx">
+            <div class="picked"></div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" type="button" id="btn-cargar">Analizar</button>
+          <span class="muted" id="estado-carga"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- -------------------------------------------- 2. Proyecto -->
+    <section class="step" id="paso-proyecto" hidden>
+      <header>
+        <span class="num">2</span>
+        <h2>Proyecto y conductores</h2>
+        <span class="spacer"></span>
+        <button class="ghost small" type="button" id="btn-respaldo">Descargar respaldo</button>
+      </header>
+      <div class="body">
+        <div class="grid cols-2">
+          <div>
+            <label class="field" for="proy-nombre">Nombre del proyecto</label>
+            <input type="text" id="proy-nombre" value="Cargas mecánicas">
+          </div>
+          <div>
+            <label class="field" for="proy-condicion">Condición del cable</label>
+            <select id="proy-condicion"></select>
+            <p class="muted" style="margin:6px 0 0">Columna de tensión del reporte que se usa como carga longitudinal.</p>
+          </div>
+        </div>
+
+        <h3 class="sub">Catálogo de conductores</h3>
+        <p class="muted" style="margin:0 0 10px">
+          El reporte redondea la carga vertical a dos decimales, así que sirve para identificar el cable
+          pero no como peso de cálculo. El diámetro y el peso exacto valen para todo el proyecto.
+        </p>
+        <div class="table-scroll">
+          <table class="data" id="tabla-conductores">
+            <thead><tr>
+              <th>Cable [daN/m]</th><th>Nombre</th><th>Diámetro [mm]</th><th>Peso exacto [daN/m]</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button class="ghost small" type="button" id="btn-conductor">+ Añadir conductor</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- -------------------------------------------- 3. Hojas -->
+    <section class="step" id="paso-hojas" hidden>
+      <header>
+        <span class="num">3</span>
+        <h2>Hojas de análisis</h2>
+        <span class="hint">Una por grupo de estructuras</span>
+      </header>
+      <div class="body" style="padding-top:0">
+        <div class="tabs" id="tabs"></div>
+        <div id="editor-hoja"></div>
+      </div>
+    </section>
+
+    <!-- -------------------------------------------- 4. Resultados -->
+    <section class="step" id="paso-resumen" hidden>
+      <header>
+        <span class="num">4</span>
+        <h2>Resumen del proyecto</h2>
+        <span class="spacer"></span>
+        <span class="muted" id="estado-calculo"></span>
+      </header>
+      <div class="body">
+        <div class="table-scroll">
+          <table class="data" id="tabla-resumen">
+            <thead><tr>
+              <th>Hoja</th><th>Estructuras</th>
+              <th class="num">Transv. calc. [kg]</th><th class="num">Transv. adm. [kg]</th><th class="num">Uso</th>
+              <th class="num">Mom. calc. [kg·m]</th><th class="num">Mom. adm. [kg·m]</th><th class="num">Uso</th>
+              <th class="num">Vertical [kg]</th><th>Estado</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/common.js"></script>
+  <script src="/static/cargas.js"></script>
+</body>
+</html>

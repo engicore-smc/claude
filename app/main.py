@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 
-from . import analysis, docx_writer, parsing
+from . import analysis, docx_writer, mec_routes, parsing
 from .auth import (
     COOKIE_NAME,
     clear_failures,
@@ -31,6 +31,7 @@ app = FastAPI(title="Anexos de tensado PLS-CADD", docs_url=None, redoc_url=None)
 # Rutas absolutas: el proceso puede arrancar desde cualquier directorio.
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+app.include_router(mec_routes.router)
 
 REPORT_KEYS = ("sag", "cable", "structures")
 
@@ -43,15 +44,31 @@ def health() -> dict[str, object]:
     return {"status": "ok", "password_configured": settings.password_configured}
 
 
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request):
+def _pagina(request: Request, plantilla: str):
+    """Cualquier página: exige clave configurada y sesión iniciada."""
     if not settings.password_configured:
         return templates.TemplateResponse(
             request, "login.html", {"error": None, "misconfigured": True}, status_code=503
         )
     if not is_authenticated(request):
         return templates.TemplateResponse(request, "login.html", {"error": None, "misconfigured": False})
-    return templates.TemplateResponse(request, "app.html", {})
+    return templates.TemplateResponse(request, plantilla, {})
+
+
+@app.get("/", response_class=HTMLResponse)
+def index(request: Request):
+    """Selector de herramienta."""
+    return _pagina(request, "home.html")
+
+
+@app.get("/tensado", response_class=HTMLResponse)
+def tensado(request: Request):
+    return _pagina(request, "app.html")
+
+
+@app.get("/cargas", response_class=HTMLResponse)
+def cargas(request: Request):
+    return _pagina(request, "cargas.html")
 
 
 @app.post("/login")
