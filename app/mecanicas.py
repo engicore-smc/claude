@@ -41,6 +41,15 @@ class Amarre:
 
 
 @dataclass
+class Poste:
+    """Datos del tipo de poste: altura y cargas de ensayo."""
+    archivo: str = ""
+    altura_m: float | None = None
+    transversal_kg: float | None = None
+    longitudinal_kg: float | None = None
+
+
+@dataclass
 class MecDataset:
     amarres: list[Amarre]
     wind_span: dict[str, float]
@@ -48,7 +57,33 @@ class MecDataset:
     casos: list[str]
     estructuras: list[str]
     nombres_estructura: dict[str, str] = field(default_factory=dict)
+    postes: dict[str, Poste] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
+
+    def datos_poste(self, estructuras: list[str]) -> dict:
+        """Altura y cargas de ensayo comunes a esas estructuras.
+
+        Si no coinciden entre sí se devuelve el valor más desfavorable y se
+        avisa: un grupo debería reunir estructuras del mismo tipo.
+        """
+        encontrados = [self.postes[e] for e in estructuras if e in self.postes]
+        def reune(campo: str):
+            valores = sorted({getattr(p, campo) for p in encontrados if getattr(p, campo) is not None})
+            return valores
+        alturas, transv, longit = reune("altura_m"), reune("transversal_kg"), reune("longitudinal_kg")
+        archivos = sorted({p.archivo for p in encontrados if p.archivo})
+        avisos = []
+        if len(alturas) > 1:
+            avisos.append(f"Las estructuras del grupo tienen alturas distintas ({', '.join(f'{a:g}' for a in alturas)} m).")
+        if len(transv) > 1:
+            avisos.append(f"Tienen cargas transversales de ensayo distintas ({', '.join(f'{t:g}' for t in transv)} kg).")
+        return {
+            "archivos": archivos,
+            "altura_m": alturas[0] if alturas else None,
+            "transversal_kg": min(transv) if transv else None,
+            "longitudinal_kg": min(longit) if longit else None,
+            "avisos": avisos,
+        }
 
     def opciones(self, estructuras: list[str], casos: list[str] | None = None) -> list[dict]:
         """Pares (set, cable) que existen de verdad en esas estructuras."""
@@ -197,6 +232,7 @@ def build_mec_dataset(
         if por_caso:
             weight[estructura] = por_caso
 
+    postes = _postes_por_estructura(span_sheet, span_frame, scol, numeros)
     estructuras = sorted(
         {a.estructura for a in amarres} | set(wind), key=_numeric_sort_key
     )
@@ -213,8 +249,74 @@ def build_mec_dataset(
         casos=casos,
         estructuras=estructuras,
         nombres_estructura=nombres,
+        postes=postes,
         warnings=warnings,
     )
+
+
+def _archivo_clave(valor) -> str:
+    """Nombre del .stk/.str sin ruta, para emparejar la tabla de postes."""
+    import ntpath
+
+    return ntpath.basename(str(valor or "").strip()).lower()
+
+
+def _grupos_poste(columnas: list[str]) -> list[tuple[str, str, str, str]]:
+    """Localiza bloques (archivo, altura, transversal, longitudinal).
+
+    El reporte puede traer estos datos dos veces: rellenos fila a fila y como
+    tabla de consulta por tipo de poste. Se leen todos los bloques.
+    """
+    from .parsing import normalize
+
+    normalizadas = [normalize(c) for c in columnas]
+    grupos: list[tuple[str, str, str, str]] = []
+    for i, nombre in enumerate(normalizadas):
+        if "structure file" not in nombre:
+            continue
+        siguiente = next(
+            (j for j in range(i + 1, len(normalizadas)) if "structure file" in normalizadas[j]),
+            len(normalizadas),
+        )
+        busca = lambda clave: next(
+            (columnas[j] for j in range(i + 1, siguiente) if clave in normalizadas[j]), None
+        )
+        altura = busca("altura poste")
+        if altura:
+            grupos.append((columnas[i], altura, busca("carga transvers"), busca("carga longitudinal")))
+    return grupos
+
+
+def _postes_por_estructura(sheet, frame, scol: dict, numeros: list) -> dict[str, Poste]:
+    tabla: dict[str, Poste] = {}
+    for col_archivo, col_altura, col_transv, col_long in _grupos_poste(list(sheet.columns)):
+        def valores(nombre):
+            return frame[nombre].tolist() if nombre and nombre in frame.columns else [None] * len(frame)
+
+        archivos, alturas = valores(col_archivo), valores(col_altura)
+        transversales, longitudinales = valores(col_transv), valores(col_long)
+        for i in range(len(frame)):
+            clave = _archivo_clave(archivos[i])
+            altura = to_float(alturas[i])
+            if not clave or altura is None:
+                continue
+            tabla.setdefault(clave, Poste(
+                archivo=str(archivos[i]).strip(),
+                altura_m=altura,
+                transversal_kg=to_float(transversales[i]),
+                longitudinal_kg=to_float(longitudinales[i]),
+            ))
+
+    if "structure_file" not in scol:
+        return {}
+    ficheros = frame[scol["structure_file"]].tolist() if scol["structure_file"] in frame.columns else []
+    salida: dict[str, Poste] = {}
+    for i in range(len(frame)):
+        estructura = structure_key(numeros[i])
+        clave = _archivo_clave(ficheros[i]) if i < len(ficheros) else ""
+        if estructura and clave and clave in tabla:
+            salida[estructura] = tabla[clave]
+    return salida
 
 
 def _texto(valor) -> str:

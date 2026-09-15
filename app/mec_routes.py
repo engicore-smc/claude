@@ -242,8 +242,13 @@ async def upload(archivos: list[UploadFile] = File(...)):
         "archivos": nombres,
         "sin_reconocer": sin_reconocer,
         "estructuras": [
-            {"key": e, "nombre": dataset.nombres_estructura.get(e, ""),
-             "wind_span": dataset.wind_span.get(e)}
+            {
+                "key": e,
+                "nombre": dataset.nombres_estructura.get(e, ""),
+                "wind_span": dataset.wind_span.get(e),
+                "altura_m": dataset.postes[e].altura_m if e in dataset.postes else None,
+                "transversal_kg": dataset.postes[e].transversal_kg if e in dataset.postes else None,
+            }
             for e in dataset.estructuras
         ],
         "casos": dataset.casos,
@@ -256,7 +261,11 @@ async def upload(archivos: list[UploadFile] = File(...)):
 @router.post("/opciones")
 def opciones(peticion: PeticionOpciones):
     job = _job(peticion.job_id)
-    return {"opciones": job.dataset.opciones(peticion.estructuras, peticion.casos or None)}
+    return {
+        "opciones": job.dataset.opciones(peticion.estructuras, peticion.casos or None),
+        # Altura y cargas de ensayo del poste, para no tener que escribirlas.
+        "poste": job.dataset.datos_poste(peticion.estructuras),
+    }
 
 
 @router.post("/evaluar")

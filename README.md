@@ -146,8 +146,23 @@ identificar el cable pero no como peso de cálculo.
 Las **alturas de amarre se indican por fase**, porque las fases de un mismo set pueden ir a
 alturas distintas.
 
+La pantalla reproduce la disposición del libro de Excel: los mismos cuatro bloques con sus
+símbolos, descripciones y unidades, las celdas calculadas sombreadas y las editables en claro.
+
 Las columnas `Weight Span LC# N` se emparejan con el caso climático a través del `Weather Case #`
 del reporte de tensiones, no por su posición.
+
+### Menos datos que escribir
+
+- La **altura del poste** y la **carga de servicio en punta** se leen del propio reporte de vanos,
+  que suele traer un bloque de consulta por tipo de poste (`Structure File Name`, `Altura poste m`,
+  `Carga Transversal según ensayos`). La hoja avisa cuando el valor escrito no coincide con el del
+  reporte y ofrece adoptarlo; nunca lo cambia sola, porque la diferencia puede ser deliberada.
+- Si las estructuras de un grupo son de tipos distintos, se avisa y se toma el caso más
+  desfavorable.
+- Los **parámetros generales** se guardan como valores por defecto en el navegador, así que solo
+  se escriben una vez y las hojas nuevas parten de ellos.
+- El **diámetro** y el **peso** salen del catálogo del proyecto, una vez por cable.
 
 ### Respaldo
 

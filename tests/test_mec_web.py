@@ -218,3 +218,19 @@ def test_the_restored_project_keeps_the_phase_heights(client, job):
     blob = client.post("/api/mec/respaldo", json={"job_id": job["job_id"], "proyecto": proyecto}).content
     recuperado = client.post("/api/mec/upload", files=_archivos(incluir_respaldo=blob)).json()["proyecto"]
     assert recuperado["grupos"][0]["lineas"][0]["alturas_amarre"] == [0.6, 1.15, 2.15]
+
+
+def test_options_also_return_the_pole_data(client, job):
+    r = client.post("/api/mec/opciones", json={
+        "job_id": job["job_id"], "estructuras": ["6", "7"], "casos": fx.CASOS_ELEGIDOS,
+    })
+    poste = r.json()["poste"]
+    assert poste["altura_m"] == 15.0
+    assert poste["transversal_kg"] == 1600.0
+    assert poste["archivos"] == [fx.POSTE_15]
+
+
+def test_upload_lists_the_pole_height_per_structure(job):
+    por_clave = {e["key"]: e for e in job["estructuras"]}
+    assert por_clave["6"]["altura_m"] == 15.0
+    assert por_clave["8"]["transversal_kg"] == 1200.0

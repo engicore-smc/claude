@@ -344,3 +344,50 @@ h3.sub { font-size: 14px; margin: 24px 0 6px; padding-top: 18px; border-top: 1px
 
 .uso { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
 .uso > span { font-variant-numeric: tabular-nums; font-size: 12.5px; min-width: 46px; text-align: right; }
+
+/* --------------------------------------------- vista tipo hoja de cálculo */
+.xl { border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; background: #fff; margin-bottom: 18px; }
+.xl-tit {
+  background: var(--accent); color: #fff;
+  font-size: 13px; font-weight: 700; letter-spacing: .02em;
+  padding: 7px 12px; display: flex; align-items: center; gap: 10px;
+}
+.xl-tit .der { margin-left: auto; font-weight: 500; opacity: .85; font-size: 12px; }
+.xl table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.xl td, .xl th {
+  border: 1px solid var(--border);
+  padding: 0;
+  height: 27px;
+  vertical-align: middle;
+}
+.xl th {
+  background: var(--surface-2); color: var(--muted);
+  font-weight: 600; text-align: center; padding: 4px 7px; line-height: 1.25;
+  font-size: 11.5px;
+}
+.xl td.t { padding: 3px 8px; }                       /* texto normal */
+.xl td.sim { padding: 3px 8px; font-weight: 700; color: var(--accent-strong); width: 58px; }
+.xl td.uni { padding: 3px 8px; color: var(--muted); width: 54px; text-align: center; }
+.xl td.calc {
+  padding: 3px 8px; text-align: right; background: var(--surface-2);
+  font-variant-numeric: tabular-nums; color: var(--text);
+}
+.xl td.calc.fuerte { font-weight: 700; }
+.xl td.ed { background: #fffdf3; }                    /* celda editable */
+.xl td.ed input {
+  border: none; background: transparent; width: 100%; height: 25px;
+  padding: 0 8px; font: inherit; font-size: 12.5px; text-align: right;
+  font-variant-numeric: tabular-nums; border-radius: 0;
+}
+.xl td.ed input[type=text] { text-align: left; }
+.xl td.ed input:focus { outline: 2px solid var(--accent); outline-offset: -2px; background: #fff; }
+.xl td.ed select { border: none; background: transparent; width: 100%; height: 25px; padding: 0 6px; font: inherit; font-size: 12.5px; }
+.xl td.ed select:focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+.xl tr.veredicto td { background: var(--accent-soft); font-weight: 700; }
+.xl tr.veredicto td.malo { background: var(--danger-soft); color: var(--danger); }
+.xl tr.veredicto td.bueno { background: var(--ok-soft); color: var(--ok); }
+.xl-pie { padding: 7px 10px; background: var(--surface-2); border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
+.xl-dos { display: grid; gap: 18px; grid-template-columns: minmax(340px, 1.4fr) minmax(280px, 1fr); align-items: start; }
+@media (max-width: 900px) { .xl-dos { grid-template-columns: 1fr; } }
+.pista { font-size: 11.5px; color: var(--warn); padding: 5px 10px; background: var(--warn-soft); border-top: 1px solid #ecd9ac; }
+.pista a { color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; }

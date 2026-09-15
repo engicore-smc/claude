@@ -41,6 +41,16 @@ VANOS = [
 WIND_SPAN = {"5": 40.0, "6": 55.0, "7": 50.0, "8": 45.0, "9": 30.0}
 WEIGHT_SPAN = {"5": 70.0, "6": 102.0, "7": 90.0, "8": 60.0, "9": 25.0}
 
+# Tipo de poste de cada estructura, y la tabla de consulta que el reporte trae
+# en un segundo bloque de columnas (altura y cargas de ensayo por tipo).
+POSTE_15 = "23kV_A_Poste_15.stk"
+POSTE_16_5 = "23kV_A_Poste_16_5.stk"
+ARCHIVO = {"5": POSTE_15, "6": POSTE_15, "7": POSTE_15, "8": POSTE_16_5, "9": POSTE_16_5}
+TABLA_POSTES = [
+    (POSTE_15, 15.0, 1600.0, 480.0),
+    (POSTE_16_5, 16.5, 1200.0, 300.0),
+]
+
 
 def tension_report() -> pd.DataFrame:
     filas = []
@@ -66,25 +76,39 @@ def tension_report() -> pd.DataFrame:
 
 
 def span_report() -> pd.DataFrame:
+    """El reporte repite 'Structure File Name' en el bloque de consulta."""
+    pesos = [numero for numero, caso in CASOS if caso != "Hielo"]
+    cabecera = (
+        ["Row #", "Str. No.", "Structure File Name", "Wind Span  (m)"]
+        + [f"Weight Span LC#  {n} (m)" for n in pesos]
+        + ["Comment"]
+        + ["Structure File Name", "Altura poste m",
+           "Carga Transversasl según ensayos kg", "Carga Longitudinal según ensayos kg"]
+    )
     filas = []
-    for estructura, viento in WIND_SPAN.items():
-        fila = {
-            "Row #": int(estructura), "Str. No.": estructura,
-            "Structure File Name": f"23kV_A_Poste_15_{estructura}.stk",
-            "Wind Span  (m)": viento,
-        }
-        for numero, caso in CASOS:
-            if caso == "Hielo":
-                continue
-            fila[f"Weight Span LC#  {numero} (m)"] = WEIGHT_SPAN[estructura]
-        filas.append(fila)
-    return pd.DataFrame(filas)
+    for i, (estructura, viento) in enumerate(WIND_SPAN.items()):
+        consulta = TABLA_POSTES[i] if i < len(TABLA_POSTES) else (None, None, None, None)
+        filas.append(
+            [int(estructura), estructura, ARCHIVO[estructura], viento]
+            + [WEIGHT_SPAN[estructura]] * len(pesos)
+            + [None]
+            + list(consulta)
+        )
+    return pd.DataFrame(filas, columns=cabecera)
 
 
 def _xlsx(frame: pd.DataFrame, hoja: str) -> bytes:
+    """Se escribe la cabecera a mano para poder repetir nombres de columna."""
+    import openpyxl
+
+    libro = openpyxl.Workbook()
+    ws = libro.active
+    ws.title = hoja
+    ws.append(list(frame.columns))
+    for fila in frame.itertuples(index=False, name=None):
+        ws.append(list(fila))
     buffer = io.BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        frame.to_excel(writer, sheet_name=hoja, index=False)
+    libro.save(buffer)
     return buffer.getvalue()
 
 

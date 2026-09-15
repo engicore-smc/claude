@@ -238,3 +238,36 @@ def test_backup_carries_readable_result_sheets(dataset, proyecto):
     assert resumen[0] == "SMC-A_15"
     assert resumen[1] == pytest.approx(411.18, abs=0.01)
     assert resumen[-1] == "CUMPLE"
+
+
+# --------------------------------------------------------------------------
+# Datos del poste que trae el reporte
+# --------------------------------------------------------------------------
+def test_pole_data_is_read_from_the_lookup_block(dataset):
+    """El reporte repite 'Structure File Name' con altura y cargas de ensayo."""
+    poste = dataset.postes["6"]
+    assert poste.archivo == fx.POSTE_15
+    assert (poste.altura_m, poste.transversal_kg, poste.longitudinal_kg) == (15.0, 1600.0, 480.0)
+    assert dataset.postes["8"].altura_m == 16.5
+
+
+def test_pole_data_for_a_uniform_group(dataset):
+    datos = dataset.datos_poste(["6", "7"])
+    assert datos["altura_m"] == 15.0
+    assert datos["transversal_kg"] == 1600.0
+    assert datos["archivos"] == [fx.POSTE_15]
+    assert datos["avisos"] == []
+
+
+def test_a_mixed_group_warns_and_takes_the_worst_case(dataset):
+    datos = dataset.datos_poste(["7", "8"])
+    assert datos["transversal_kg"] == 1200.0  # la menor de las dos
+    assert any("alturas distintas" in a for a in datos["avisos"])
+    assert any("cargas transversales" in a for a in datos["avisos"])
+
+
+def test_structures_without_pole_data_are_simply_absent(dataset):
+    assert dataset.datos_poste(["999"]) == {
+        "archivos": [], "altura_m": None, "transversal_kg": None,
+        "longitudinal_kg": None, "avisos": [],
+    }
