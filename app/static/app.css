@@ -466,3 +466,8 @@ table.hoja td.bueno { background: var(--ok-soft); color: var(--ok); }
   background: rgba(255, 255, 255, .12); color: #fff; cursor: pointer;
 }
 .proyectos button:hover { background: rgba(255, 255, 255, .26); }
+
+/* Aviso de los reportes que este navegador recuerda. */
+.guardados { margin: 10px 0 0; font-size: 12.5px; }
+.guardados:empty { display: none; }
+.guardados .ok { color: #1a7f37; font-weight: 600; }

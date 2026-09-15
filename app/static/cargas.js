@@ -65,8 +65,8 @@ function grupoNuevo(nombre) {
 }
 
 // -------------------------------------------------------------- proyectos
-// Los proyectos viven en el navegador; los reportes se vuelven a subir en
-// cada sesión y el respaldo sirve para llevárselos a otro equipo.
+// Los proyectos viven en el navegador, igual que los reportes subidos; el
+// respaldo sirve para llevárselo todo a otro equipo.
 const CLAVE_PROYECTOS = 'plscadd.cargas.proyectos';
 const CONDICION = 'creep';
 
@@ -143,6 +143,10 @@ $('#btn-proy-borrar').addEventListener('click', () => {
 });
 
 // ------------------------------------------------------------------ carga
+// Los reportes quedan guardados en este navegador: al recargar la página se
+// vuelven a enviar solos, sin tener que elegirlos otra vez.
+const CLAVE_ARCHIVOS = 'cargas.reportes';
+
 function pintarElegidos(input) {
   const destino = input.parentElement.querySelector('.picked');
   const nombres = Array.from(input.files || []).map((f) => f.name);
@@ -152,45 +156,76 @@ function pintarElegidos(input) {
 ['#file-reportes', '#file-respaldo'].forEach((sel) =>
   $(sel).addEventListener('change', () => pintarElegidos($(sel))));
 
+async function analizar(reportes, respaldo = []) {
+  const datos = new FormData();
+  [...reportes, ...respaldo].forEach((f) => datos.append('archivos', f));
+  return api('/api/mec/upload', { body: datos });
+}
+
+/** Deja la página lista con lo que devolvió /upload. */
+function aplicarCarga(r, { preguntarNombre = true } = {}) {
+  S.jobId = r.job_id;
+  S.estructuras = r.estructuras;
+  S.casos = r.casos;
+  const guardados = leerProyectos();
+  S.proyectos = guardados.lista;
+  if (r.proyecto) {
+    // Un respaldo entra como proyecto nuevo, para no pisar lo que ya había.
+    const importado = proyectoNuevo(r.proyecto.nombre || 'Respaldo', r.proyecto.grupos);
+    S.proyectos.push(importado);
+    guardados.activo = importado.id;
+  }
+  if (!S.proyectos.length) {
+    const nombre = preguntarNombre
+      ? (prompt('Nombre del proyecto:', 'Proyecto 1') || 'Proyecto 1').trim()
+      : 'Proyecto 1';
+    S.proyectos.push(proyectoNuevo(nombre));
+  }
+  S.proyecto = S.proyectos.find((p) => p.id === guardados.activo) || S.proyectos[0];
+  S.proyecto.condicion = CONDICION;
+  if (!S.proyecto.grupos.length) S.proyecto.grupos.push(grupoNuevo('Hoja 1'));
+  S.activa = 0;
+  guardarProyectos();
+  $('#paso-hojas').hidden = false;
+}
+
+function resumenCarga(extra = '') {
+  $('#estado-carga').textContent =
+    `${S.estructuras.length} estructuras · ${S.casos.length} casos climáticos${extra}`;
+}
+
+function pintarGuardados(nombres) {
+  const host = $('#archivos-guardados');
+  if (!nombres.length) {
+    host.replaceChildren();
+    $('#btn-olvidar').hidden = true;
+    return;
+  }
+  host.replaceChildren(
+    el('span', { class: 'ok' }, '✓ '),
+    `Reportes guardados en este navegador: ${nombres.join(', ')}. Se cargan solos al abrir la página.`,
+  );
+  $('#btn-olvidar').hidden = false;
+}
+
 $('#btn-cargar').addEventListener('click', async () => {
   const boton = $('#btn-cargar');
   clearError();
-  const datos = new FormData();
   const reportes = Array.from($('#file-reportes').files || []);
   const respaldo = Array.from($('#file-respaldo').files || []);
   if (!reportes.length) { fail('Selecciona los reportes de PLS-CADD.'); return; }
-  [...reportes, ...respaldo].forEach((f) => datos.append('archivos', f));
 
   busy(boton, true, 'Analizando…');
   try {
-    const r = await api('/api/mec/upload', { body: datos });
-    S.jobId = r.job_id;
-    S.estructuras = r.estructuras;
-    S.casos = r.casos;
-    const guardados = leerProyectos();
-    S.proyectos = guardados.lista;
-    if (r.proyecto) {
-      // Un respaldo entra como proyecto nuevo, para no pisar lo que ya había.
-      const importado = proyectoNuevo(r.proyecto.nombre || 'Respaldo', r.proyecto.grupos);
-      S.proyectos.push(importado);
-      guardados.activo = importado.id;
-    }
-    if (!S.proyectos.length) {
-      const nombre = (prompt('Nombre del proyecto:', 'Proyecto 1') || 'Proyecto 1').trim();
-      S.proyectos.push(proyectoNuevo(nombre));
-    }
-    S.proyecto = S.proyectos.find((p) => p.id === guardados.activo) || S.proyectos[0];
-    S.proyecto.condicion = CONDICION;
-    if (!S.proyecto.grupos.length) S.proyecto.grupos.push(grupoNuevo('Hoja 1'));
-    S.activa = 0;
-    guardarProyectos();
-    $('#estado-carga').textContent =
-      `${S.estructuras.length} estructuras · ${S.casos.length} casos climáticos` +
-      (r.proyecto ? ` · respaldo con ${r.proyecto.grupos.length} hoja(s)` : '');
+    const r = await analizar(reportes, respaldo);
+    aplicarCarga(r);
+    // Sólo se guardan los reportes: el respaldo ya quedó dentro del proyecto.
+    const guardado = await guardarArchivos(CLAVE_ARCHIVOS, reportes);
+    pintarGuardados(guardado ? reportes.map((f) => f.name) : []);
+    resumenCarga(r.proyecto ? ` · respaldo con ${r.proyecto.grupos.length} hoja(s)` : '');
     if (r.avisos && r.avisos.length) {
       $('#global-error').replaceChildren(notice('warn', 'Avisos al leer los reportes:', r.avisos));
     }
-    $('#paso-hojas').hidden = false;
     render();
   } catch (e) {
     fail(e.message);
@@ -198,6 +233,54 @@ $('#btn-cargar').addEventListener('click', async () => {
     busy(boton, false);
   }
 });
+
+$('#btn-olvidar').addEventListener('click', async () => {
+  if (!confirm('¿Olvidar los reportes guardados en este navegador? Los proyectos y sus hojas se conservan.')) return;
+  await olvidarArchivos(CLAVE_ARCHIVOS);
+  pintarGuardados([]);
+});
+
+/** Vuelve a subir los reportes guardados: al recargar y cuando el servidor
+ *  olvida la sesión de trabajo (se reinició o venció el plazo). */
+async function reanudar() {
+  const archivos = await leerArchivos(CLAVE_ARCHIVOS);
+  if (!archivos.length) return null;
+  const r = await analizar(archivos);
+  S.jobId = r.job_id;
+  S.estructuras = r.estructuras;
+  S.casos = r.casos;
+  pintarGuardados(archivos.map((f) => f.name));
+  return r;
+}
+
+/** Como api(), pero si la sesión de trabajo venció la rehace y reintenta. */
+async function apiMec(ruta, opciones) {
+  try {
+    return await api(ruta, opciones);
+  } catch (e) {
+    if (e.status !== 404 || !S.jobId) throw e;
+    if (!(await reanudar())) throw e;
+    return api(ruta, { ...opciones, body: { ...opciones.body, job_id: S.jobId } });
+  }
+}
+
+// Al abrir la página se recupera lo último que se subió desde este navegador.
+(async function arranque() {
+  const nombres = (await leerArchivos(CLAVE_ARCHIVOS)).map((f) => f.name);
+  if (!nombres.length) return;
+  pintarGuardados(nombres);
+  $('#estado-carga').textContent = 'Recuperando los reportes guardados…';
+  try {
+    const r = await reanudar();
+    if (!r) return;
+    aplicarCarga(r, { preguntarNombre: false });
+    resumenCarga();
+    render();
+  } catch (e) {
+    $('#estado-carga').textContent = '';
+    fail(`No pude recuperar los reportes guardados: ${e.message}`);
+  }
+}());
 
 // ------------------------------------------------------- proyecto y cables
 function render() {
@@ -711,7 +794,7 @@ async function refrescarOpciones() {
   const g = grupoActivo();
   if (!g || !S.jobId) return;
   try {
-    const r = await api('/api/mec/opciones', {
+    const r = await apiMec('/api/mec/opciones', {
       body: { job_id: S.jobId, estructuras: g.estructuras, casos: g.casos },
     });
     S.opciones = r.opciones;
@@ -735,7 +818,7 @@ async function evaluar() {
   if (!S.jobId || !S.proyecto) return;
   $('#estado-calculo').textContent = 'calculando…';
   try {
-    const r = await api('/api/mec/evaluar', { body: { job_id: S.jobId, proyecto: S.proyecto } });
+    const r = await apiMec('/api/mec/evaluar', { body: { job_id: S.jobId, proyecto: S.proyecto } });
     S.resultados = r.resultados;
     refrescarCalculos();
     guardarProyectos();
@@ -810,7 +893,7 @@ $('#btn-respaldo').addEventListener('click', async () => {
   const boton = $('#btn-respaldo');
   busy(boton, true, 'Generando…');
   try {
-    const respuesta = await api('/api/mec/respaldo', {
+    const respuesta = await apiMec('/api/mec/respaldo', {
       body: { job_id: S.jobId, proyecto: S.proyecto }, raw: true,
     });
     const blob = await respuesta.blob();

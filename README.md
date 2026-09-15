@@ -174,6 +174,20 @@ Al elegir las estructuras y los casos, **los sets se ponen solos**: una fila por
 (set, cable) presente. Si luego se cambia la selección, las filas que se pusieron solas y siguen
 vacías se retiran, y las que ya tienen datos escritos se conservan.
 
+### Qué se conserva al recargar la página
+
+Nada se pierde al recargar ni al cerrar el navegador y volver más tarde, en el mismo equipo:
+
+| Qué | Dónde queda | Cuándo vuelve |
+|---|---|---|
+| Reportes subidos | En el navegador (IndexedDB) | Solos, al abrir la página: se reenvían al servidor sin tocar nada |
+| Proyectos, hojas y parámetros | En el navegador (`localStorage`) | Al abrir la página |
+| Sesión de trabajo del servidor | En memoria, con vencimiento | Se rehace sola desde los reportes guardados cuando el servidor la olvidó (un redespliegue de Railway, por ejemplo) |
+
+Los archivos **no se suben a ningún almacén permanente**: viven en el equipo desde el que se
+trabaja. El botón **Olvidar archivos guardados** los borra del navegador sin tocar los proyectos.
+Para llevarse el trabajo a otro equipo está el respaldo.
+
 ### Respaldo
 
 El botón **Descargar respaldo** genera un `.xlsx` con las hojas, sus líneas y sus parámetros, más
@@ -303,7 +317,7 @@ app/
   analysis.py     estructuras, cadenas, tramos entre anclajes y cálculo del vano
   docx_writer.py  generación del Word con celdas combinadas
   templates/      login y aplicación
-  static/         estilos y JavaScript
+  static/         estilos y JavaScript (archivos.js guarda los reportes en el navegador)
 bot/
   main.py         comandos y handlers de Telegram
   flow.py         lógica del bot, sin nada de Telegram (identifica reportes, arma respuestas)

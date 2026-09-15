@@ -63,6 +63,22 @@ def test_each_tool_has_its_own_page(client):
     assert "Cargas mecánicas" in client.get("/cargas").text
 
 
+def test_the_page_carries_the_browser_file_store(client):
+    """Los reportes quedan guardados en el navegador, no hay que resubirlos."""
+    cuerpo = client.get("/cargas").text
+    assert '/static/archivos.js' in cuerpo
+    assert 'id="btn-olvidar"' in cuerpo
+    guardado = client.get("/static/archivos.js").text
+    assert "indexedDB" in guardado
+    assert all(f in guardado for f in ("guardarArchivos", "leerArchivos", "olvidarArchivos"))
+
+
+def test_an_expired_job_says_so_with_a_404(client):
+    """El 404 es lo que dispara la resubida automática desde el navegador."""
+    r = client.post("/api/mec/opciones", json={"job_id": "no-existe", "estructuras": []})
+    assert r.status_code == 404
+
+
 def test_the_tool_pages_need_a_session(client):
     anonimo = client.__class__(client.app)
     for ruta in ("/", "/tensado", "/cargas"):

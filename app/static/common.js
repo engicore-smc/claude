@@ -54,7 +54,9 @@ async function api(path, { method = 'POST', body, raw = false } = {}) {
     else {
       try { detail = (await response.json()).detail || detail; } catch { /* respuesta sin JSON */ }
     }
-    throw new Error(detail);
+    const error = new Error(detail);
+    error.status = response.status;
+    throw error;
   }
   return raw ? response : response.json();
 }
