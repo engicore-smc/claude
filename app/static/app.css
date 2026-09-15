@@ -70,7 +70,7 @@ body {
 .topbar a { color: #dbe7f4; text-decoration: none; font-size: 13.5px; }
 .topbar a:hover { color: #fff; text-decoration: underline; }
 
-main { max-width: 1180px; margin: 0 auto; padding: 24px 24px 96px; }
+main { max-width: 100%; margin: 0; padding: 20px 20px 80px; }
 
 .step {
   background: var(--surface);
@@ -271,7 +271,8 @@ table.data tr.off td { opacity: .42; }
 table.data tr.off td.pick { opacity: 1; }
 
 /* ------------------------------------------------- selector de herramienta */
-.tools { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+.tools { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+         max-width: 900px; margin: 0 auto; }
 .tool {
   display: block;
   background: var(--surface);
@@ -448,3 +449,20 @@ table.hoja td.bueno { background: var(--ok-soft); color: var(--ok); }
   border: 1px solid #ecd9ac; border-radius: 5px; padding: 3px 9px; align-self: center;
 }
 .pista-linea a { color: var(--accent); font-weight: 600; cursor: pointer; text-decoration: underline; }
+
+/* --------------------------------------------------- selector de proyecto */
+.proyectos { display: flex; align-items: center; gap: 6px; margin-right: 18px; }
+.proyectos label { font-size: 12.5px; color: #cfe0f0; }
+.proyectos select {
+  font: inherit; font-size: 13px; height: 27px; min-width: 170px;
+  border: 1px solid rgba(255, 255, 255, .3); border-radius: 6px;
+  background: rgba(255, 255, 255, .12); color: #fff; padding: 0 6px;
+}
+.proyectos select option { color: #16202e; }
+.proyectos button {
+  font: inherit; font-size: 13px; line-height: 1;
+  width: 27px; height: 27px; padding: 0;
+  border: 1px solid rgba(255, 255, 255, .3); border-radius: 6px;
+  background: rgba(255, 255, 255, .12); color: #fff; cursor: pointer;
+}
+.proyectos button:hover { background: rgba(255, 255, 255, .26); }

@@ -13,6 +13,13 @@
     <a href="/" class="back">← Herramientas</a>
     <h1>Cargas mecánicas</h1>
     <span class="spacer"></span>
+    <div class="proyectos">
+      <label for="proyecto-select">Proyecto</label>
+      <select id="proyecto-select"></select>
+      <button type="button" id="btn-proy-nuevo" title="Nuevo proyecto">+</button>
+      <button type="button" id="btn-proy-renombrar" title="Renombrar proyecto">✎</button>
+      <button type="button" id="btn-proy-borrar" title="Eliminar proyecto">🗑</button>
+    </div>
     <a href="/logout">Cerrar sesión</a>
   </div>
 
@@ -52,36 +59,15 @@
       </div>
     </section>
 
-    <!-- -------------------------------------------- 2. Proyecto -->
-    <section class="step" id="paso-proyecto" hidden>
-      <header>
-        <span class="num">2</span>
-        <h2>Proyecto</h2>
-        <span class="spacer"></span>
-        <button class="ghost small" type="button" id="btn-respaldo">Descargar respaldo</button>
-      </header>
-      <div class="body">
-        <div class="grid cols-2">
-          <div>
-            <label class="field" for="proy-nombre">Nombre del proyecto</label>
-            <input type="text" id="proy-nombre" value="Cargas mecánicas">
-          </div>
-          <div>
-            <label class="field" for="proy-condicion">Condición del cable</label>
-            <select id="proy-condicion"></select>
-            <p class="muted" style="margin:6px 0 0">Columna de tensión del reporte que se usa como carga longitudinal.</p>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- -------------------------------------------- 3. Hojas -->
+    <!-- -------------------------------------------- 2. Hojas -->
     <section class="step" id="paso-hojas" hidden>
       <header>
-        <span class="num">3</span>
+        <span class="num">2</span>
         <h2>Hojas de análisis</h2>
         <span class="hint">Una por grupo de estructuras</span>
+        <span class="spacer"></span>
+        <span class="muted" id="estado-calculo"></span>
+        <button class="ghost small" type="button" id="btn-respaldo">Descargar respaldo</button>
       </header>
       <div class="body" style="padding-top:0">
         <div class="tabs" id="tabs"></div>
@@ -89,28 +75,6 @@
       </div>
     </section>
 
-    <!-- -------------------------------------------- 4. Resultados -->
-    <section class="step" id="paso-resumen" hidden>
-      <header>
-        <span class="num">4</span>
-        <h2>Resumen del proyecto</h2>
-        <span class="spacer"></span>
-        <span class="muted" id="estado-calculo"></span>
-      </header>
-      <div class="body">
-        <div class="table-scroll">
-          <table class="data" id="tabla-resumen">
-            <thead><tr>
-              <th>Hoja</th><th>Estructuras</th>
-              <th class="num">Transv. calc. [kg]</th><th class="num">Transv. adm. [kg]</th><th class="num">Uso</th>
-              <th class="num">Mom. calc. [kg·m]</th><th class="num">Mom. adm. [kg·m]</th><th class="num">Uso</th>
-              <th class="num">Vertical [kg]</th><th>Estado</th>
-            </tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
   </main>
 
   <script src="/static/common.js"></script>

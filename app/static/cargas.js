@@ -4,8 +4,8 @@ const S = {
   jobId: null,
   estructuras: [],      // [{key, nombre, wind_span}]
   casos: [],
-  condiciones: [],
-  proyecto: null,       // {nombre, condicion, conductores[], grupos[]}
+  proyectos: [],        // guardados en el navegador
+  proyecto: null,       // el activo: {id, nombre, grupos[]}
   activa: 0,
   opciones: [],         // pares (set, cable) del grupo activo
   poste: null,          // altura y cargas de ensayo que trae el reporte
@@ -64,6 +64,84 @@ function grupoNuevo(nombre) {
   };
 }
 
+// -------------------------------------------------------------- proyectos
+// Los proyectos viven en el navegador; los reportes se vuelven a subir en
+// cada sesión y el respaldo sirve para llevárselos a otro equipo.
+const CLAVE_PROYECTOS = 'plscadd.cargas.proyectos';
+const CONDICION = 'creep';
+
+function leerProyectos() {
+  try {
+    const datos = JSON.parse(localStorage.getItem(CLAVE_PROYECTOS) || '{}');
+    return Array.isArray(datos.lista) ? datos : { activo: null, lista: [] };
+  } catch {
+    return { activo: null, lista: [] };
+  }
+}
+
+function guardarProyectos() {
+  try {
+    localStorage.setItem(CLAVE_PROYECTOS,
+      JSON.stringify({ activo: S.proyecto ? S.proyecto.id : null, lista: S.proyectos }));
+  } catch { /* sin localStorage */ }
+}
+
+function proyectoNuevo(nombre, grupos = null) {
+  return {
+    id: `p${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    nombre, condicion: CONDICION, grupos: grupos || [grupoNuevo('Hoja 1')],
+  };
+}
+
+function abrirProyecto(id) {
+  const encontrado = S.proyectos.find((p) => p.id === id);
+  if (!encontrado) return;
+  S.proyecto = encontrado;
+  S.proyecto.condicion = CONDICION;
+  if (!S.proyecto.grupos.length) S.proyecto.grupos.push(grupoNuevo('Hoja 1'));
+  S.activa = 0;
+  guardarProyectos();
+  renderProyectos();
+  renderTabs();
+  refrescarOpciones();
+}
+
+function renderProyectos() {
+  const select = $('#proyecto-select');
+  select.replaceChildren(...S.proyectos.map((p) => {
+    const opcion = el('option', { value: p.id }, p.nombre);
+    if (S.proyecto && p.id === S.proyecto.id) opcion.selected = true;
+    return opcion;
+  }));
+  $('#btn-proy-borrar').disabled = S.proyectos.length <= 1;
+}
+
+$('#proyecto-select').addEventListener('change', (e) => abrirProyecto(e.target.value));
+
+$('#btn-proy-nuevo').addEventListener('click', () => {
+  const nombre = (prompt('Nombre del proyecto nuevo:', `Proyecto ${S.proyectos.length + 1}`) || '').trim();
+  if (!nombre) return;
+  const proyecto = proyectoNuevo(nombre);
+  S.proyectos.push(proyecto);
+  abrirProyecto(proyecto.id);
+});
+
+$('#btn-proy-renombrar').addEventListener('click', () => {
+  if (!S.proyecto) return;
+  const nombre = (prompt('Nuevo nombre:', S.proyecto.nombre) || '').trim();
+  if (!nombre) return;
+  S.proyecto.nombre = nombre;
+  guardarProyectos();
+  renderProyectos();
+});
+
+$('#btn-proy-borrar').addEventListener('click', () => {
+  if (!S.proyecto || S.proyectos.length <= 1) return;
+  if (!confirm(`¿Eliminar el proyecto «${S.proyecto.nombre}» y todas sus hojas?`)) return;
+  S.proyectos = S.proyectos.filter((p) => p.id !== S.proyecto.id);
+  abrirProyecto(S.proyectos[0].id);
+});
+
 // ------------------------------------------------------------------ carga
 function pintarElegidos(input) {
   const destino = input.parentElement.querySelector('.picked');
@@ -89,17 +167,30 @@ $('#btn-cargar').addEventListener('click', async () => {
     S.jobId = r.job_id;
     S.estructuras = r.estructuras;
     S.casos = r.casos;
-    S.condiciones = r.condiciones;
-    S.proyecto = r.proyecto || { nombre: 'Cargas mecánicas', condicion: 'creep', grupos: [] };
+    const guardados = leerProyectos();
+    S.proyectos = guardados.lista;
+    if (r.proyecto) {
+      // Un respaldo entra como proyecto nuevo, para no pisar lo que ya había.
+      const importado = proyectoNuevo(r.proyecto.nombre || 'Respaldo', r.proyecto.grupos);
+      S.proyectos.push(importado);
+      guardados.activo = importado.id;
+    }
+    if (!S.proyectos.length) {
+      const nombre = (prompt('Nombre del proyecto:', 'Proyecto 1') || 'Proyecto 1').trim();
+      S.proyectos.push(proyectoNuevo(nombre));
+    }
+    S.proyecto = S.proyectos.find((p) => p.id === guardados.activo) || S.proyectos[0];
+    S.proyecto.condicion = CONDICION;
     if (!S.proyecto.grupos.length) S.proyecto.grupos.push(grupoNuevo('Hoja 1'));
     S.activa = 0;
+    guardarProyectos();
     $('#estado-carga').textContent =
       `${S.estructuras.length} estructuras · ${S.casos.length} casos climáticos` +
       (r.proyecto ? ` · respaldo con ${r.proyecto.grupos.length} hoja(s)` : '');
     if (r.avisos && r.avisos.length) {
       $('#global-error').replaceChildren(notice('warn', 'Avisos al leer los reportes:', r.avisos));
     }
-    ['#paso-proyecto', '#paso-hojas', '#paso-resumen'].forEach((id) => { $(id).hidden = false; });
+    $('#paso-hojas').hidden = false;
     render();
   } catch (e) {
     fail(e.message);
@@ -110,19 +201,10 @@ $('#btn-cargar').addEventListener('click', async () => {
 
 // ------------------------------------------------------- proyecto y cables
 function render() {
-  $('#proy-nombre').value = S.proyecto.nombre;
-  const cond = $('#proy-condicion');
-  cond.replaceChildren(...S.condiciones.map((c) =>
-    el('option', { value: c, ...(c === S.proyecto.condicion ? { selected: 'selected' } : {}) }, c)));
+  renderProyectos();
   renderTabs();
   refrescarOpciones();   // trae las opciones de la hoja activa y luego pinta
 }
-
-$('#proy-nombre').addEventListener('input', (e) => { S.proyecto.nombre = e.target.value; });
-$('#proy-condicion').addEventListener('change', (e) => {
-  S.proyecto.condicion = e.target.value;
-  fail('La condición del cable se aplica al leer los reportes: vuelve a pulsar «Analizar» con el respaldo descargado.');
-});
 
 // ------------------------------------------------------------------ hojas
 function renderTabs() {
@@ -463,24 +545,6 @@ function pieHoja(g) {
     class: 'ghost small', type: 'button', title: 'Se aplicarán a las hojas nuevas',
     onclick: () => { guardarDefaults(g); pie.append(el('span', { class: 'badge ok', text: 'guardados' })); },
   }, 'Guardar parámetros por defecto'));
-  const p = S.poste;
-  if (p && (p.altura_m !== null || p.transversal_kg !== null)) {
-    const iguales = (p.altura_m === null || Math.abs(p.altura_m - g.ht_m) < 1e-9)
-      && (p.transversal_kg === null || Math.abs(p.transversal_kg - g.t_servicio_kg) < 1e-9);
-    if (!iguales) {
-      pie.append(el('span', { class: 'pista-linea' },
-        `El reporte indica ${p.altura_m ?? '—'} m y ${p.transversal_kg ?? '—'} kg para `
-        + `${(p.archivos || []).join(', ') || 'este poste'} — `,
-        el('a', {
-          onclick: () => {
-            if (p.altura_m !== null) g.ht_m = p.altura_m;
-            if (p.transversal_kg !== null) g.t_servicio_kg = p.transversal_kg;
-            renderEditor(); evaluar();
-          },
-        }, 'usar estos valores')));
-    }
-    (p.avisos || []).forEach((a) => pie.append(el('span', { class: 'pista-linea', text: a })));
-  }
   return pie;
 }
 
@@ -673,41 +737,13 @@ async function evaluar() {
   try {
     const r = await api('/api/mec/evaluar', { body: { job_id: S.jobId, proyecto: S.proyecto } });
     S.resultados = r.resultados;
-    pintarResumen();
     refrescarCalculos();
+    guardarProyectos();
     $('#estado-calculo').textContent = '';
   } catch (e) {
     $('#estado-calculo').textContent = '';
     fail(e.message);
   }
-}
-
-function barra(uso) {
-  const pct = uso === null || uso === undefined ? 0 : Math.min(uso * 100, 100);
-  const clase = uso > 1 ? 'bar pasa' : uso > 0.85 ? 'bar alto' : 'bar';
-  return el('div', { class: 'uso' },
-    el('span', { text: uso === null || uso === undefined ? '—' : `${(uso * 100).toFixed(1)} %` }),
-    el('div', { class: clase }, el('i', { style: `width:${pct.toFixed(1)}%` })));
-}
-
-function pintarResumen() {
-  const cuerpo = $('#tabla-resumen tbody');
-  cuerpo.replaceChildren();
-  S.resultados.forEach((r, i) => {
-    const g = S.proyecto.grupos[i];
-    cuerpo.append(el('tr', {},
-      el('td', {}, el('strong', { text: r.nombre })),
-      el('td', { text: (g.estructuras || []).join(', ') || '—' }),
-      el('td', { class: 'num', text: n2(r.transversal_calculada) }),
-      el('td', { class: 'num', text: n2(r.transversal_admisible) }),
-      el('td', { class: 'num' }, barra(r.uso_transversal)),
-      el('td', { class: 'num', text: n2(r.momento_calculado) }),
-      el('td', { class: 'num', text: n2(r.momento_admisible) }),
-      el('td', { class: 'num' }, barra(r.uso_momento)),
-      el('td', { class: 'num', text: n2(r.vertical_total) }),
-      el('td', {}, el('span', { class: `badge ${r.cumple ? 'ok' : 'err'}` },
-        r.cumple ? 'CUMPLE' : 'NO CUMPLE'))));
-  });
 }
 
 /** Actualiza solo las celdas calculadas de la hoja activa.
