@@ -367,6 +367,7 @@ class Conductor:
     nombre: str = ""
     diametro_mm: float = 0.0
     peso_dan_m: float | None = None
+    n_conductores: int = 1          # conductores por fase (haz)
 
     @property
     def peso_kg_m(self) -> float:
@@ -375,17 +376,30 @@ class Conductor:
 
 
 @dataclass
+class Aislador:
+    """Catálogo del proyecto: una cadena de aisladores con su ferretería."""
+    nombre: str
+    diametro_mm: float = 0.0
+    longitud_mm: float = 0.0
+    peso_kg: float = 0.0
+    n_aisladores: int = 0           # para la carga vertical
+    peso_ferreteria_kg: float = 0.0
+
+
+SIN_AISLADOR = Aislador(nombre="")
+
+
+@dataclass
 class Linea:
-    """Una línea de conductor del grupo: el par (set, cable) y su herraje."""
+    """Una línea del grupo: el par (set, cable), su cadena y sus alturas.
+
+    Los datos del conductor y de la cadena viven en los catálogos del
+    proyecto; aquí solo se referencian, para escribirlos una sola vez.
+    """
     set_no: str
     cable: float
     fases: int = 1
-    n_conductores: int = 1
-    diam_aislador_mm: float = 0.0
-    long_aislador_mm: float = 0.0
-    peso_aislador_kg: float = 0.0
-    n_aisladores: int = 0
-    peso_ferreteria_kg: float = 0.0
+    aislador: str = ""              # nombre en el catálogo de aisladores
     alturas_amarre: list[float] = field(default_factory=list)
 
     def altura(self, fase: int) -> float:
@@ -435,6 +449,7 @@ class ResultadoLinea:
     carga_transversal: float | None
     luz_peso: float | None
     carga_vertical: float | None
+    aislador: str = ""
     avisos: list[str] = field(default_factory=list)
 
 
@@ -474,27 +489,32 @@ class ResultadoGrupo:
         )
 
 
-def carga_transversal(grupo: Grupo, linea: Linea, conductor: Conductor,
+def carga_transversal(grupo: Grupo, aislador: Aislador, conductor: Conductor,
                       luz_viento: float, tension_kg: float) -> float:
     """Viento sobre el conductor y sobre la cadena, más la componente del ángulo."""
     viento = grupo.fs * grupo.pv_kg_m2 * (
         (grupo.nc * conductor.diametro_mm + 2 * grupo.espesor_hielo_mm) * 1e-3 * luz_viento
-        + 0.5 * grupo.n_cadenas * linea.diam_aislador_mm * linea.long_aislador_mm
+        + 0.5 * grupo.n_cadenas * aislador.diametro_mm * aislador.longitud_mm
         * grupo.n_aisladores * 1e-6
     )
     angulo = 2 * grupo.nc * tension_kg * math.sin(math.radians(grupo.alpha_deg / 2))
     return viento + angulo
 
 
-def carga_vertical(linea: Linea, conductor: Conductor, luz_peso: float) -> float:
+def carga_vertical(conductor: Conductor, aislador: Aislador, luz_peso: float) -> float:
     return (
-        linea.n_conductores * conductor.peso_kg_m * luz_peso
-        + linea.peso_aislador_kg * linea.n_aisladores
-        + linea.peso_ferreteria_kg
+        conductor.n_conductores * conductor.peso_kg_m * luz_peso
+        + aislador.peso_kg * aislador.n_aisladores
+        + aislador.peso_ferreteria_kg
     )
 
 
-def evaluar(dataset: MecDataset, grupo: Grupo, catalogo: dict[float, Conductor]) -> ResultadoGrupo:
+def evaluar(
+    dataset: MecDataset,
+    grupo: Grupo,
+    catalogo: dict[float, Conductor],
+    aisladores: dict[str, Aislador] | None = None,
+) -> ResultadoGrupo:
     avisos: list[str] = []
     if not grupo.estructuras:
         avisos.append("El grupo no tiene estructuras seleccionadas.")
@@ -513,8 +533,10 @@ def evaluar(dataset: MecDataset, grupo: Grupo, catalogo: dict[float, Conductor])
     transversal = 0.0
     vertical_total = 0.0
 
+    catalogo_aisladores = aisladores or {}
     for linea in grupo.lineas:
         conductor = catalogo.get(round(linea.cable, 6)) or Conductor(cable=linea.cable)
+        aislador = catalogo_aisladores.get(linea.aislador, SIN_AISLADOR)
         propios: list[str] = []
         tension = dataset.tension_max(grupo.estructuras, linea.set_no, linea.cable, grupo.casos)
         if tension is None:
@@ -524,11 +546,13 @@ def evaluar(dataset: MecDataset, grupo: Grupo, catalogo: dict[float, Conductor])
             )
         if conductor.diametro_mm <= 0:
             propios.append("Falta el diámetro del conductor: la carga de viento queda incompleta.")
+        if linea.aislador and linea.aislador not in catalogo_aisladores:
+            propios.append(f"La cadena «{linea.aislador}» no está en el catálogo de aisladores.")
 
         t = None if (tension is None or luz_viento is None) else carga_transversal(
-            grupo, linea, conductor, luz_viento, tension
+            grupo, aislador, conductor, luz_viento, tension
         )
-        v = None if luz_peso is None else carga_vertical(linea, conductor, luz_peso)
+        v = None if luz_peso is None else carga_vertical(conductor, aislador, luz_peso)
         if t is not None:
             transversal += t * linea.fases
             for fase in range(1, linea.fases + 1):
@@ -539,7 +563,8 @@ def evaluar(dataset: MecDataset, grupo: Grupo, catalogo: dict[float, Conductor])
         resultados.append(ResultadoLinea(
             set_no=linea.set_no, cable=linea.cable, nombre=conductor.nombre,
             fases=linea.fases, luz_viento=luz_viento, tension_kg=tension,
-            carga_transversal=t, luz_peso=luz_peso, carga_vertical=v, avisos=propios,
+            carga_transversal=t, luz_peso=luz_peso, carga_vertical=v,
+            aislador=linea.aislador, avisos=propios,
         ))
 
     # Los momentos se agrupan por altura de amarre, como en el libro original.

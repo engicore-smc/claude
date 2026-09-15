@@ -25,18 +25,23 @@ class ConductorIn(BaseModel):
     nombre: str = ""
     diametro_mm: float = 0.0
     peso_dan_m: float | None = None
+    n_conductores: int = 1
+
+
+class AisladorIn(BaseModel):
+    nombre: str
+    diametro_mm: float = 0.0
+    longitud_mm: float = 0.0
+    peso_kg: float = 0.0
+    n_aisladores: int = 0
+    peso_ferreteria_kg: float = 0.0
 
 
 class LineaIn(BaseModel):
     set_no: str
     cable: float
     fases: int = 1
-    n_conductores: int = 1
-    diam_aislador_mm: float = 0.0
-    long_aislador_mm: float = 0.0
-    peso_aislador_kg: float = 0.0
-    n_aisladores: int = 0
-    peso_ferreteria_kg: float = 0.0
+    aislador: str = ""
     alturas_amarre: list[float] = Field(default_factory=list)
 
 
@@ -61,6 +66,7 @@ class ProyectoIn(BaseModel):
     nombre: str = "Cargas mecánicas"
     condicion: str = M.CONDICION_POR_DEFECTO
     conductores: list[ConductorIn] = Field(default_factory=list)
+    aisladores: list[AisladorIn] = Field(default_factory=list)
     grupos: list[GrupoIn] = Field(default_factory=list)
 
 
@@ -83,8 +89,15 @@ def _a_dominio(proyecto: ProyectoIn) -> backup.Proyecto:
         nombre=proyecto.nombre,
         condicion=proyecto.condicion,
         conductores={
-            round(c.cable, 6): M.Conductor(round(c.cable, 6), c.nombre, c.diametro_mm, c.peso_dan_m)
+            round(c.cable, 6): M.Conductor(
+                round(c.cable, 6), c.nombre, c.diametro_mm, c.peso_dan_m, max(0, c.n_conductores)
+            )
             for c in proyecto.conductores
+        },
+        aisladores={
+            a.nombre: M.Aislador(a.nombre, a.diametro_mm, a.longitud_mm,
+                                 a.peso_kg, a.n_aisladores, a.peso_ferreteria_kg)
+            for a in proyecto.aisladores if a.nombre
         },
         grupos=[
             M.Grupo(
@@ -95,10 +108,7 @@ def _a_dominio(proyecto: ProyectoIn) -> backup.Proyecto:
                 lineas=[
                     M.Linea(
                         set_no=l.set_no, cable=round(l.cable, 6), fases=max(1, l.fases),
-                        n_conductores=l.n_conductores, diam_aislador_mm=l.diam_aislador_mm,
-                        long_aislador_mm=l.long_aislador_mm, peso_aislador_kg=l.peso_aislador_kg,
-                        n_aisladores=l.n_aisladores, peso_ferreteria_kg=l.peso_ferreteria_kg,
-                        alturas_amarre=list(l.alturas_amarre),
+                        aislador=l.aislador, alturas_amarre=list(l.alturas_amarre),
                     )
                     for l in g.lineas
                 ],
@@ -113,8 +123,15 @@ def _desde_dominio(proyecto: backup.Proyecto) -> dict:
         "nombre": proyecto.nombre,
         "condicion": proyecto.condicion,
         "conductores": [
-            {"cable": c.cable, "nombre": c.nombre, "diametro_mm": c.diametro_mm, "peso_dan_m": c.peso_dan_m}
+            {"cable": c.cable, "nombre": c.nombre, "diametro_mm": c.diametro_mm,
+             "peso_dan_m": c.peso_dan_m, "n_conductores": c.n_conductores}
             for c in sorted(proyecto.conductores.values(), key=lambda c: c.cable)
+        ],
+        "aisladores": [
+            {"nombre": a.nombre, "diametro_mm": a.diametro_mm, "longitud_mm": a.longitud_mm,
+             "peso_kg": a.peso_kg, "n_aisladores": a.n_aisladores,
+             "peso_ferreteria_kg": a.peso_ferreteria_kg}
+            for a in proyecto.aisladores.values()
         ],
         "grupos": [
             {
@@ -126,10 +143,7 @@ def _desde_dominio(proyecto: backup.Proyecto) -> dict:
                 "lineas": [
                     {
                         "set_no": l.set_no, "cable": l.cable, "fases": l.fases,
-                        "n_conductores": l.n_conductores, "diam_aislador_mm": l.diam_aislador_mm,
-                        "long_aislador_mm": l.long_aislador_mm, "peso_aislador_kg": l.peso_aislador_kg,
-                        "n_aisladores": l.n_aisladores, "peso_ferreteria_kg": l.peso_ferreteria_kg,
-                        "alturas_amarre": l.alturas_amarre,
+                        "aislador": l.aislador, "alturas_amarre": l.alturas_amarre,
                     }
                     for l in g.lineas
                 ],
@@ -147,7 +161,7 @@ def _resultado_json(r: M.ResultadoGrupo) -> dict:
                 "set_no": l.set_no, "cable": l.cable, "nombre": l.nombre, "fases": l.fases,
                 "luz_viento": l.luz_viento, "tension_kg": l.tension_kg,
                 "carga_transversal": l.carga_transversal, "luz_peso": l.luz_peso,
-                "carga_vertical": l.carga_vertical, "avisos": l.avisos,
+                "carga_vertical": l.carga_vertical, "aislador": l.aislador, "avisos": l.avisos,
             }
             for l in r.lineas
         ],
@@ -274,7 +288,8 @@ def evaluar(peticion: PeticionProyecto):
     proyecto = _a_dominio(peticion.proyecto)
     return {
         "resultados": [
-            _resultado_json(M.evaluar(job.dataset, g, proyecto.conductores)) for g in proyecto.grupos
+            _resultado_json(M.evaluar(job.dataset, g, proyecto.conductores, proyecto.aisladores))
+            for g in proyecto.grupos
         ]
     }
 
@@ -283,7 +298,10 @@ def evaluar(peticion: PeticionProyecto):
 def respaldo(peticion: PeticionProyecto):
     job = _job(peticion.job_id)
     proyecto = _a_dominio(peticion.proyecto)
-    resultados = {g.nombre: M.evaluar(job.dataset, g, proyecto.conductores) for g in proyecto.grupos}
+    resultados = {
+        g.nombre: M.evaluar(job.dataset, g, proyecto.conductores, proyecto.aisladores)
+        for g in proyecto.grupos
+    }
     blob = backup.escribir_respaldo(proyecto, resultados)
     slug = re.sub(r"[^A-Za-z0-9_-]+", "-", proyecto.nombre or "cargas").strip("-") or "cargas"
     nombre = f"cargas-mecanicas-{slug}-{datetime.now():%Y%m%d-%H%M}.xlsx"

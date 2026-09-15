@@ -75,19 +75,37 @@
 
         <h3 class="sub">Catálogo de conductores</h3>
         <p class="muted" style="margin:0 0 10px">
-          El reporte redondea la carga vertical a dos decimales, así que sirve para identificar el cable
-          pero no como peso de cálculo. El diámetro y el peso exacto valen para todo el proyecto.
+          Se escriben una vez y valen para todas las hojas. El reporte redondea la carga vertical a dos
+          decimales, así que identifica el cable pero no sirve como peso de cálculo.
         </p>
         <div class="table-scroll">
           <table class="data" id="tabla-conductores">
             <thead><tr>
-              <th>Cable [daN/m]</th><th>Nombre</th><th>Diámetro [mm]</th><th>Peso exacto [daN/m]</th><th></th>
+              <th>Cable [daN/m]</th><th>Nombre</th><th>Diámetro [mm]</th>
+              <th>Peso exacto [daN/m]</th><th>Conductores por fase</th><th></th>
             </tr></thead>
             <tbody></tbody>
           </table>
         </div>
         <div class="actions" style="margin-top:12px">
           <button class="ghost small" type="button" id="btn-conductor">+ Añadir conductor</button>
+        </div>
+
+        <h3 class="sub">Catálogo de aisladores</h3>
+        <p class="muted" style="margin:0 0 10px">
+          Cada cadena con su ferretería. En las hojas solo se elige por nombre y se traen todos los datos.
+        </p>
+        <div class="table-scroll">
+          <table class="data" id="tabla-aisladores">
+            <thead><tr>
+              <th>Nombre</th><th>Ø aislador [mm]</th><th>Longitud [mm]</th>
+              <th>Peso aislador [kg]</th><th>N.º de aisladores</th><th>Ferretería [kg]</th><th></th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="actions" style="margin-top:12px">
+          <button class="ghost small" type="button" id="btn-aislador">+ Añadir cadena</button>
         </div>
       </div>
     </section>

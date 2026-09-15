@@ -152,6 +152,22 @@ símbolos, descripciones y unidades, las celdas calculadas sombreadas y las edit
 Las columnas `Weight Span LC# N` se emparejan con el caso climático a través del `Weather Case #`
 del reporte de tensiones, no por su posición.
 
+### Los catálogos se escriben una vez
+
+Arriba, en el proyecto, se definen dos catálogos; en las hojas solo se elige por nombre y vienen
+todos los datos.
+
+| Catálogo de conductores | Catálogo de aisladores |
+|---|---|
+| Cable `daN/m` (del reporte, identifica el cable) | Nombre |
+| Nombre, diámetro `mm` | Ø aislador `mm`, longitud `mm` |
+| Peso exacto `daN/m` | Peso aislador `kg`, n.º de aisladores |
+| Conductores por fase | Ferretería `kg` |
+
+En cada línea de una hoja solo se elige el par **(set, cable)** y la **cadena**; el bloque de cargas
+verticales queda entero calculado. Cambiar un dato del catálogo se propaga a todas las hojas, que es
+justamente lo que fallaba en el libro original, donde el diámetro y el peso se escribían por hoja.
+
 ### Menos datos que escribir
 
 - La **altura del poste** y la **carga de servicio en punta** se leen del propio reporte de vanos,
@@ -162,12 +178,14 @@ del reporte de tensiones, no por su posición.
   desfavorable.
 - Los **parámetros generales** se guardan como valores por defecto en el navegador, así que solo
   se escriben una vez y las hojas nuevas parten de ellos.
-- El **diámetro** y el **peso** salen del catálogo del proyecto, una vez por cable.
+- El **diámetro**, el **peso** y el herraje salen de los catálogos, una vez por cable y por cadena.
 
 ### Respaldo
 
-El botón **Descargar respaldo** genera un `.xlsx` con el catálogo, las hojas, las líneas y los
-parámetros, más hojas legibles con el resumen y el detalle. Ese archivo se vuelve a subir **junto
+El botón **Descargar respaldo** genera un `.xlsx` con los dos catálogos, las hojas, las líneas y
+los parámetros, más hojas legibles con el resumen y el detalle. Los respaldos de la primera versión,
+que llevaban el herraje dentro de cada línea, se siguen leyendo: ese herraje se convierte en
+entradas del catálogo de aisladores. Ese archivo se vuelve a subir **junto
 con los reportes** y reconstruye el proyecto entero: los resultados se recalculan y salen
 idénticos.
 

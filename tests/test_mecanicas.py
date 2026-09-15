@@ -35,9 +35,17 @@ def dataset() -> M.MecDataset:
 @pytest.fixture
 def catalogo() -> dict[float, M.Conductor]:
     return {
-        0.43: M.Conductor(0.43, "CTO1", 16.3068, 0.428477),
-        0.18: M.Conductor(0.18, "FO", 14.0, 0.181),
-        0.40: M.Conductor(0.40, "G", 9.144, 0.398413),
+        0.43: M.Conductor(0.43, "CTO1", 16.3068, 0.428477, 1),
+        0.18: M.Conductor(0.18, "FO", 14.0, 0.181, 1),
+        0.40: M.Conductor(0.40, "G", 9.144, 0.398413, 1),
+    }
+
+
+@pytest.fixture
+def aisladores() -> dict[str, M.Aislador]:
+    return {
+        "Cadena 15 kV": M.Aislador("Cadena 15 kV", 115.0, 635.0, 3.4, 1, 15.0),
+        "Solo ferretería": M.Aislador("Solo ferretería", 0.0, 0.0, 0.0, 0, 15.0),
     }
 
 
@@ -48,11 +56,9 @@ def grupo() -> M.Grupo:
         fs=1.1, nc=1, espesor_hielo_mm=0, n_cadenas=1, n_aisladores=1, alpha_deg=1,
         ht_m=15, t_servicio_kg=800, pv_kg_m2=80,
         lineas=[
-            M.Linea("1", 0.43, fases=3, n_conductores=1, diam_aislador_mm=115,
-                    long_aislador_mm=635, peso_aislador_kg=3.4, n_aisladores=1,
-                    peso_ferreteria_kg=15, alturas_amarre=[0.16, 0.16, 0.16]),
-            M.Linea("2", 0.18, fases=1, n_conductores=1, peso_ferreteria_kg=15, alturas_amarre=[3.29]),
-            M.Linea("3", 0.40, fases=1, n_conductores=1, peso_ferreteria_kg=15, alturas_amarre=[1.74]),
+            M.Linea("1", 0.43, fases=3, aislador="Cadena 15 kV", alturas_amarre=[0.16, 0.16, 0.16]),
+            M.Linea("2", 0.18, fases=1, aislador="Solo ferretería", alturas_amarre=[3.29]),
+            M.Linea("3", 0.40, fases=1, aislador="Solo ferretería", alturas_amarre=[1.74]),
         ],
     )
 
@@ -117,8 +123,8 @@ def test_spans_match_the_reference_sheet(dataset):
     assert dataset.luz_peso(["6", "7"], fx.CASOS_ELEGIDOS) == ESPERADO["luz_peso"]
 
 
-def test_line_results_match_the_reference_sheet(dataset, grupo, catalogo):
-    resultado = M.evaluar(dataset, grupo, catalogo)
+def test_line_results_match_the_reference_sheet(dataset, grupo, catalogo, aisladores):
+    resultado = M.evaluar(dataset, grupo, catalogo, aisladores)
     assert [l.avisos for l in resultado.lineas] == [[], [], []]
     for linea in resultado.lineas:
         assert linea.tension_kg == pytest.approx(ESPERADO["tension"][linea.set_no], abs=1e-6)
@@ -126,8 +132,8 @@ def test_line_results_match_the_reference_sheet(dataset, grupo, catalogo):
         assert linea.carga_vertical == pytest.approx(ESPERADO["vertical"][linea.set_no], abs=1e-6)
 
 
-def test_totals_and_moments_match_the_reference_sheet(dataset, grupo, catalogo):
-    r = M.evaluar(dataset, grupo, catalogo)
+def test_totals_and_moments_match_the_reference_sheet(dataset, grupo, catalogo, aisladores):
+    r = M.evaluar(dataset, grupo, catalogo, aisladores)
     assert r.transversal_calculada == pytest.approx(ESPERADO["transversal_total"], abs=1e-9)
     assert r.transversal_admisible == 800
     assert r.momento_calculado == pytest.approx(ESPERADO["momento_total"], abs=1e-9)
@@ -137,24 +143,24 @@ def test_totals_and_moments_match_the_reference_sheet(dataset, grupo, catalogo):
     assert r.cumple
 
 
-def test_more_poles_raise_the_allowables(dataset, grupo, catalogo):
+def test_more_poles_raise_the_allowables(dataset, grupo, catalogo, aisladores):
     grupo.n_postes = 3
-    r = M.evaluar(dataset, grupo, catalogo)
+    r = M.evaluar(dataset, grupo, catalogo, aisladores)
     assert r.transversal_admisible == 2400
     assert r.momento_admisible == 30000
 
 
-def test_a_line_that_does_not_exist_is_reported(dataset, grupo, catalogo):
+def test_a_line_that_does_not_exist_is_reported(dataset, grupo, catalogo, aisladores):
     grupo.lineas.append(M.Linea("9", 0.43, fases=1))
-    r = M.evaluar(dataset, grupo, catalogo)
+    r = M.evaluar(dataset, grupo, catalogo, aisladores)
     ultima = r.lineas[-1]
     assert ultima.tension_kg is None and ultima.carga_transversal is None
     assert "no aparece en esas estructuras" in ultima.avisos[0]
 
 
-def test_a_missing_diameter_is_reported(dataset, grupo, catalogo):
-    catalogo[0.43] = M.Conductor(0.43, "CTO1", 0.0, 0.428477)
-    r = M.evaluar(dataset, grupo, catalogo)
+def test_a_missing_diameter_is_reported(dataset, grupo, catalogo, aisladores):
+    catalogo[0.43] = M.Conductor(0.43, "CTO1", 0.0, 0.428477, 1)
+    r = M.evaluar(dataset, grupo, catalogo, aisladores)
     assert any("diámetro" in a for a in r.lineas[0].avisos)
 
 
@@ -172,18 +178,19 @@ def test_the_tension_condition_can_be_changed():
 # Respaldo
 # --------------------------------------------------------------------------
 @pytest.fixture
-def proyecto(grupo, catalogo) -> B.Proyecto:
+def proyecto(grupo, catalogo, aisladores) -> B.Proyecto:
     otro = M.Grupo(
         nombre="Set repetido", estructuras=["8"], casos=fx.CASOS_ELEGIDOS, n_postes=2,
-        lineas=[M.Linea("5", 0.43, fases=1, alturas_amarre=[0.5]),
-                M.Linea("5", 0.18, fases=1, alturas_amarre=[1.5])],
+        lineas=[M.Linea("5", 0.43, fases=1, aislador="Cadena 15 kV", alturas_amarre=[0.5]),
+                M.Linea("5", 0.18, fases=1, aislador="Solo ferretería", alturas_amarre=[1.5])],
     )
     return B.Proyecto(nombre="Proyecto de prueba", condicion="creep",
-                      conductores=catalogo, grupos=[grupo, otro])
+                      conductores=catalogo, aisladores=aisladores, grupos=[grupo, otro])
 
 
 def test_backup_round_trip_reproduces_every_result(dataset, proyecto):
-    antes = {g.nombre: M.evaluar(dataset, g, proyecto.conductores) for g in proyecto.grupos}
+    antes = {g.nombre: M.evaluar(dataset, g, proyecto.conductores, proyecto.aisladores)
+             for g in proyecto.grupos}
     blob = B.escribir_respaldo(proyecto, antes)
 
     recuperado = B.leer_respaldo(blob)
@@ -191,7 +198,8 @@ def test_backup_round_trip_reproduces_every_result(dataset, proyecto):
     assert recuperado.condicion == "creep"
     assert [g.nombre for g in recuperado.grupos] == ["SMC-A_15", "Set repetido"]
 
-    despues = {g.nombre: M.evaluar(dataset, g, recuperado.conductores) for g in recuperado.grupos}
+    despues = {g.nombre: M.evaluar(dataset, g, recuperado.conductores, recuperado.aisladores)
+               for g in recuperado.grupos}
     for nombre, a in antes.items():
         d = despues[nombre]
         assert d.transversal_calculada == pytest.approx(a.transversal_calculada, abs=1e-9)
@@ -230,7 +238,8 @@ def test_backup_carries_readable_result_sheets(dataset, proyecto):
 
     import openpyxl
 
-    resultados = {g.nombre: M.evaluar(dataset, g, proyecto.conductores) for g in proyecto.grupos}
+    resultados = {g.nombre: M.evaluar(dataset, g, proyecto.conductores, proyecto.aisladores)
+                  for g in proyecto.grupos}
     libro = openpyxl.load_workbook(io.BytesIO(B.escribir_respaldo(proyecto, resultados)))
     assert libro.sheetnames[0] == "Resumen"
     assert "SMC-A_15" in libro.sheetnames
@@ -271,3 +280,47 @@ def test_structures_without_pole_data_are_simply_absent(dataset):
         "archivos": [], "altura_m": None, "transversal_kg": None,
         "longitudinal_kg": None, "avisos": [],
     }
+
+
+def test_backup_keeps_the_insulator_catalogue(dataset, proyecto):
+    recuperado = B.leer_respaldo(B.escribir_respaldo(proyecto, {}))
+    cadena = recuperado.aisladores["Cadena 15 kV"]
+    assert (cadena.diametro_mm, cadena.longitud_mm, cadena.peso_kg) == (115.0, 635.0, 3.4)
+    assert (cadena.n_aisladores, cadena.peso_ferreteria_kg) == (1, 15.0)
+    assert recuperado.grupos[0].lineas[0].aislador == "Cadena 15 kV"
+
+
+def test_a_line_pointing_at_a_missing_insulator_is_reported(dataset, grupo, catalogo):
+    r = M.evaluar(dataset, grupo, catalogo, {})   # catálogo de aisladores vacío
+    assert any("no está en el catálogo" in a for a in r.lineas[0].avisos)
+
+
+def test_an_old_backup_moves_the_hardware_into_the_catalogue(dataset, grupo, catalogo):
+    """Un respaldo v1 llevaba el herraje en cada línea; se convierte en catálogo."""
+    import io
+
+    import openpyxl
+
+    proyecto = B.Proyecto(nombre="Antiguo", conductores=catalogo, grupos=[grupo])
+    libro = openpyxl.load_workbook(io.BytesIO(B.escribir_respaldo(proyecto, {})))
+    libro[B.HOJA_PROYECTO]["B2"] = 1                      # versión 1
+    del libro[B.HOJA_AISLADORES]
+    hoja = libro[B.HOJA_LINEAS]
+    libro.remove(hoja)
+    hoja = libro.create_sheet(B.HOJA_LINEAS)
+    hoja.append(B.CAB_LINEAS_V1)
+    hoja.append(["SMC-A_15", "1", 0.43, 3, 1, 115, 635, 3.4, 1, 15, "0.16, 0.16, 0.16"])
+    hoja.append(["SMC-A_15", "2", 0.18, 1, 1, 0, 0, 0, 0, 15, "3.29"])
+    hoja.append(["SMC-A_15", "3", 0.40, 1, 1, 0, 0, 0, 0, 15, "1.74"])
+    buffer = io.BytesIO()
+    libro.save(buffer)
+
+    recuperado = B.leer_respaldo(buffer.getvalue())
+    # Dos cadenas distintas: la del CTO y la que solo lleva ferretería.
+    assert len(recuperado.aisladores) == 2
+    lineas = recuperado.grupos[0].lineas
+    assert lineas[1].aislador == lineas[2].aislador != lineas[0].aislador
+
+    r = M.evaluar(dataset, recuperado.grupos[0], recuperado.conductores, recuperado.aisladores)
+    assert r.transversal_calculada == pytest.approx(ESPERADO["transversal_total"], abs=1e-9)
+    assert r.momento_calculado == pytest.approx(ESPERADO["momento_total"], abs=1e-9)
