@@ -152,40 +152,34 @@ símbolos, descripciones y unidades, las celdas calculadas sombreadas y las edit
 Las columnas `Weight Span LC# N` se emparejan con el caso climático a través del `Weather Case #`
 del reporte de tensiones, no por su posición.
 
-### Los catálogos se escriben una vez
+### La hoja es la del libro
 
-Arriba, en el proyecto, se definen dos catálogos; en las hojas solo se elige por nombre y vienen
-todos los datos.
+La pantalla reproduce una hoja de grupo del Excel: los mismos cuatro bloques, las mismas
+etiquetas y el mismo código de color.
 
-| Catálogo de conductores | Catálogo de aisladores |
-|---|---|
-| Cable `daN/m` (del reporte, identifica el cable) | Nombre |
-| Nombre, diámetro `mm` | Ø aislador `mm`, longitud `mm` |
-| Peso exacto `daN/m` | Peso aislador `kg`, n.º de aisladores |
-| Conductores por fase | Ferretería `kg` |
+- **Fondo amarillo**: lo que se rellena a mano, igual que en el libro.
+- **Letra roja**: lo que se calcula.
 
-En cada línea de una hoja solo se elige el par **(set, cable)** y la **cadena**; el bloque de cargas
-verticales queda entero calculado. Cambiar un dato del catálogo se propaga a todas las hojas, que es
-justamente lo que fallaba en el libro original, donde el diámetro y el peso se escribían por hoja.
+Los datos se escriben en la propia hoja, no en catálogos aparte. Las mejoras van en los campos
+que antes se tecleaban a ciegas:
 
-### Menos datos que escribir
+| Campo | Antes | Ahora |
+|---|---|---|
+| `Set's` | Un número escrito a mano | Desplegable con los pares **(set, cable)** que existen de verdad en las estructuras elegidas, con el cable entre paréntesis: `1 (0.43 daN/m)` |
+| `Estructura(s) a evaluar` | Números escritos a mano | Desplegable con las estructuras del reporte |
+| `Casos climáticos a evaluar` | Texto escrito a mano | Desplegable con los casos del reporte |
+| `Peso del conductor` | Escrito a mano | Se adelanta del reporte al elegir el set, y se puede corregir |
 
-- La **altura del poste** y la **carga de servicio en punta** se leen del propio reporte de vanos,
-  que suele traer un bloque de consulta por tipo de poste (`Structure File Name`, `Altura poste m`,
-  `Carga Transversal según ensayos`). La hoja avisa cuando el valor escrito no coincide con el del
-  reporte y ofrece adoptarlo; nunca lo cambia sola, porque la diferencia puede ser deliberada.
-- Si las estructuras de un grupo son de tipos distintos, se avisa y se toma el caso más
-  desfavorable.
-- Los **parámetros generales** se guardan como valores por defecto en el navegador, así que solo
-  se escriben una vez y las hojas nuevas parten de ellos.
-- El **diámetro**, el **peso** y el herraje salen de los catálogos, una vez por cable y por cadena.
+Al elegir las estructuras y los casos, **los sets se ponen solos**: una fila por cada par
+(set, cable) presente. Si luego se cambia la selección, las filas que se pusieron solas y siguen
+vacías se retiran, y las que ya tienen datos escritos se conservan.
 
 ### Respaldo
 
-El botón **Descargar respaldo** genera un `.xlsx` con los dos catálogos, las hojas, las líneas y
-los parámetros, más hojas legibles con el resumen y el detalle. Los respaldos de la primera versión,
-que llevaban el herraje dentro de cada línea, se siguen leyendo: ese herraje se convierte en
-entradas del catálogo de aisladores. Ese archivo se vuelve a subir **junto
+El botón **Descargar respaldo** genera un `.xlsx` con las hojas, sus líneas y sus parámetros, más
+hojas legibles con el resumen y el detalle. Los respaldos de versiones anteriores, que guardaban
+parte de los datos en catálogos de conductores y aisladores, se siguen leyendo: esos datos se
+vuelcan en la línea que los usaba. Ese archivo se vuelve a subir **junto
 con los reportes** y reconstruye el proyecto entero: los resultados se recalculan y salen
 idénticos.
 

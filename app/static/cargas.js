@@ -55,7 +55,9 @@ function grupoActivo() {
 function grupoNuevo(nombre) {
   const d = leerDefaults();
   return {
-    nombre, estructuras: [], casos: S.casos.slice(), n_postes: 1,
+    // La hoja arranca en blanco, como en el libro: las estructuras y los
+    // casos climáticos se eligen a mano.
+    nombre, estructuras: [], casos: [], n_postes: 1,
     fs: d.fs, nc: d.nc, espesor_hielo_mm: d.espesor_hielo_mm,
     n_cadenas: d.n_cadenas, n_aisladores: d.n_aisladores, alpha_deg: d.alpha_deg,
     ht_m: d.ht_m, t_servicio_kg: d.t_servicio_kg, pv_kg_m2: d.pv_kg_m2, lineas: [],
@@ -88,11 +90,7 @@ $('#btn-cargar').addEventListener('click', async () => {
     S.estructuras = r.estructuras;
     S.casos = r.casos;
     S.condiciones = r.condiciones;
-    S.proyecto = r.proyecto || {
-      nombre: 'Cargas mecánicas', condicion: 'creep',
-      conductores: [], aisladores: [], grupos: [],
-    };
-    S.proyecto.aisladores = S.proyecto.aisladores || [];
+    S.proyecto = r.proyecto || { nombre: 'Cargas mecánicas', condicion: 'creep', grupos: [] };
     if (!S.proyecto.grupos.length) S.proyecto.grupos.push(grupoNuevo('Hoja 1'));
     S.activa = 0;
     $('#estado-carga').textContent =
@@ -116,8 +114,6 @@ function render() {
   const cond = $('#proy-condicion');
   cond.replaceChildren(...S.condiciones.map((c) =>
     el('option', { value: c, ...(c === S.proyecto.condicion ? { selected: 'selected' } : {}) }, c)));
-  renderConductores();
-  renderAisladores();
   renderTabs();
   refrescarOpciones();   // trae las opciones de la hoja activa y luego pinta
 }
@@ -127,110 +123,6 @@ $('#proy-condicion').addEventListener('change', (e) => {
   S.proyecto.condicion = e.target.value;
   fail('La condición del cable se aplica al leer los reportes: vuelve a pulsar «Analizar» con el respaldo descargado.');
 });
-
-function renderConductores() {
-  const cuerpo = $('#tabla-conductores tbody');
-  cuerpo.replaceChildren();
-  S.proyecto.conductores.forEach((c, i) => {
-    const campo = (clave, paso) => {
-      const input = el('input', { type: 'number', step: String(paso), value: c[clave] ?? '' });
-      input.addEventListener('input', () => {
-        c[clave] = input.value === '' ? (clave === 'peso_dan_m' ? null : 0) : Number(input.value);
-        evaluar();
-      });
-      return input;
-    };
-    const nombre = el('input', { type: 'text', value: c.nombre || '' });
-    nombre.addEventListener('input', () => { c.nombre = nombre.value; evaluar(); });
-    cuerpo.append(el('tr', {},
-      el('td', {}, campo('cable', 0.01)),
-      el('td', {}, nombre),
-      el('td', {}, campo('diametro_mm', 0.0001)),
-      el('td', {}, campo('peso_dan_m', 0.000001)),
-      el('td', {}, campo('n_conductores', 1)),
-      el('td', {}, el('button', {
-        class: 'btn-x', type: 'button', title: 'Quitar',
-        onclick: () => { S.proyecto.conductores.splice(i, 1); renderConductores(); evaluar(); },
-      }, '×'))));
-  });
-}
-
-function renderAisladores() {
-  const cuerpo = $('#tabla-aisladores tbody');
-  cuerpo.replaceChildren();
-  (S.proyecto.aisladores || []).forEach((a, i) => {
-    const campo = (clave, paso) => {
-      const input = el('input', { type: 'number', step: String(paso), value: a[clave] ?? 0 });
-      input.addEventListener('input', () => {
-        a[clave] = input.value === '' ? 0 : Number(input.value);
-        evaluarDiferido();
-      });
-      return input;
-    };
-    const nombre = el('input', { type: 'text', value: a.nombre || '' });
-    nombre.addEventListener('change', () => {
-      const anterior = a.nombre;
-      a.nombre = nombre.value;
-      // Las líneas que apuntaban a esta cadena siguen apuntándole.
-      S.proyecto.grupos.forEach((g) => g.lineas.forEach((l) => {
-        if (l.aislador === anterior) l.aislador = a.nombre;
-      }));
-      renderEditor();
-      evaluar();
-    });
-    cuerpo.append(el('tr', {},
-      el('td', {}, nombre),
-      el('td', {}, campo('diametro_mm', 0.1)),
-      el('td', {}, campo('longitud_mm', 1)),
-      el('td', {}, campo('peso_kg', 0.1)),
-      el('td', {}, campo('n_aisladores', 1)),
-      el('td', {}, campo('peso_ferreteria_kg', 0.1)),
-      el('td', {}, el('button', {
-        class: 'btn-x', type: 'button', title: 'Quitar',
-        onclick: () => { S.proyecto.aisladores.splice(i, 1); renderAisladores(); renderEditor(); evaluar(); },
-      }, '×'))));
-  });
-  if (!(S.proyecto.aisladores || []).length) {
-    cuerpo.append(el('tr', {}, el('td', { colspan: '7', class: 'muted' },
-      'Sin cadenas todavía. Añade una para poder elegirla en las hojas.')));
-  }
-}
-
-$('#btn-aislador').addEventListener('click', () => {
-  S.proyecto.aisladores = S.proyecto.aisladores || [];
-  S.proyecto.aisladores.push({
-    nombre: `Cadena ${S.proyecto.aisladores.length + 1}`,
-    diametro_mm: 0, longitud_mm: 0, peso_kg: 0, n_aisladores: 0, peso_ferreteria_kg: 0,
-  });
-  renderAisladores();
-  renderEditor();
-});
-
-$('#btn-conductor').addEventListener('click', () => {
-  S.proyecto.conductores.push({ cable: 0, nombre: '', diametro_mm: 0, peso_dan_m: null, n_conductores: 1 });
-  renderConductores();
-});
-
-/** Asegura que el catálogo tenga los cables que usan las líneas del proyecto.
- *  Solo añade: nunca borra, para no quitar un conductor añadido a mano. Se
- *  basa en las líneas en uso y no en las opciones ofrecidas, de modo que no se
- *  acumulan cables que se llegaron a ver una vez (por ejemplo los de hielo). */
-function sincronizarCatalogo() {
-  const conocidos = new Set(S.proyecto.conductores.map((c) => Number(c.cable).toFixed(6)));
-  let nuevos = 0;
-  S.proyecto.grupos.forEach((g) => (g.lineas || []).forEach((l) => {
-    const clave = Number(l.cable).toFixed(6);
-    if (!conocidos.has(clave)) {
-      conocidos.add(clave);
-      S.proyecto.conductores.push({ cable: l.cable, nombre: '', diametro_mm: 0, peso_dan_m: null, n_conductores: 1 });
-      nuevos += 1;
-    }
-  }));
-  if (nuevos) {
-    S.proyecto.conductores.sort((a, b) => a.cable - b.cable);
-    renderConductores();
-  }
-}
 
 // ------------------------------------------------------------------ hojas
 function renderTabs() {
@@ -292,86 +184,65 @@ function chips(valores, elegidos, alCambiar, etiqueta = (v) => v) {
   return host;
 }
 
-// ------------------------------------------------- celdas de la "hoja"
-function celdaEd(objeto, clave, paso, opciones = {}) {
+// ----------------------------------------------- réplica de la hoja de Excel
+// Anchos de las columnas A..M, tomados del libro original.
+const ANCHOS = [65, 250, 145, 48, 140, 135, 135, 130, 18, 140, 148, 132, 50];
+const COLS = ANCHOS.length;
+
+function cel(contenido, opciones = {}) {
+  const atributos = { class: opciones.clase || '' };
+  if (opciones.colspan) atributos.colspan = String(opciones.colspan);
+  if (opciones.rowspan) atributos.rowspan = String(opciones.rowspan);
+  if (opciones.calc) { atributos['data-calc'] = opciones.calc; atributos['data-dec'] = String(opciones.dec ?? 2); }
+  const td = el('td', atributos);
+  if (contenido !== null && contenido !== undefined) {
+    if (contenido.nodeType) td.append(contenido);
+    else td.textContent = String(contenido);
+  }
+  return td;
+}
+
+/** Celda amarilla: las que se rellenan a mano, como en el libro. */
+function celAm(input) { return cel(input, { clase: 'am' }); }
+
+function celNum(valor, dec = 2, clave = null, clase = '') {
+  return cel(n2(valor, dec), { clase: `num ${clase}`.trim(), calc: clave, dec });
+}
+
+function entrada(objeto, clave, paso, alCambiar = evaluarDiferido, opciones = {}) {
   const input = el('input', {
     type: opciones.texto ? 'text' : 'number',
     ...(opciones.texto ? {} : { step: String(paso) }),
-    ...(opciones.min !== undefined ? { min: String(opciones.min) } : {}),
     value: objeto[clave] ?? (opciones.texto ? '' : 0),
   });
   input.addEventListener('input', () => {
-    objeto[clave] = opciones.texto ? input.value
-      : (input.value === '' ? 0 : Number(input.value));
-    (opciones.alCambiar || evaluarDiferido)();
+    objeto[clave] = opciones.texto ? input.value : (input.value === '' ? 0 : Number(input.value));
+    alCambiar();
   });
-  return el('td', { class: 'ed' }, input);
+  return input;
 }
 
-function celdaCalc(valor, decimales = 2, fuerte = false, clave = null) {
-  const atributos = { class: `calc${fuerte ? ' fuerte' : ''}`, text: n2(valor, decimales) };
-  // La clave permite refrescar el valor sin reconstruir la tabla, para no
-  // robarle el foco al campo que se esté escribiendo.
-  if (clave) { atributos['data-calc'] = clave; atributos['data-dec'] = String(decimales); }
-  return el('td', atributos);
+function banda(texto) {
+  return el('tr', { class: 'banda' }, cel(texto, { colspan: COLS }));
 }
 
-function filaParam(simbolo, descripcion, celda, unidad) {
-  return el('tr', {},
-    el('td', { class: 'sim', text: simbolo }),
-    el('td', { class: 't', text: descripcion }),
-    celda,
-    el('td', { class: 'uni', text: unidad }));
+function vacia() {
+  return el('tr', { class: 'hueca' }, cel('', { colspan: COLS }));
 }
 
-function bloque(titulo, derecha) {
-  const caja = el('div', { class: 'xl' });
-  const cab = el('div', { class: 'xl-tit' }, titulo);
-  if (derecha) cab.append(el('span', { class: 'der', text: derecha }));
-  caja.append(cab);
-  return caja;
+function rellenar(fila, desde) {
+  for (let i = desde; i < COLS; i += 1) fila.append(cel(''));
+  return cerrar(fila);
 }
 
-function cabecera(...titulos) {
-  return el('thead', {}, el('tr', {}, ...titulos.map((t) => el('th', {}, t))));
-}
-
-function etiquetaLinea(linea) {
-  const conductor = S.proyecto.conductores.find(
-    (c) => Number(c.cable).toFixed(6) === Number(linea.cable).toFixed(6));
-  const nombre = conductor && conductor.nombre ? ` ${conductor.nombre}` : '';
-  return `Set ${linea.set_no} · ${Number(linea.cable)}${nombre}`;
-}
-
-function conductorDe(linea) {
-  return S.proyecto.conductores.find(
-    (c) => Number(c.cable).toFixed(6) === Number(linea.cable).toFixed(6)) || {};
-}
-
-function aisladorDe(linea) {
-  return (S.proyecto.aisladores || []).find((a) => a.nombre === linea.aislador) || {};
-}
-
-/** Selector de cadena: en la hoja solo se elige el nombre y vienen sus datos. */
-function selectorAislador(linea) {
-  const select = el('select', {});
-  select.append(el('option', { value: '' }, '— sin cadena —'));
-  (S.proyecto.aisladores || []).forEach((a) => {
-    const opcion = el('option', { value: a.nombre }, a.nombre || '(sin nombre)');
-    if (a.nombre === linea.aislador) opcion.selected = true;
-    select.append(opcion);
+/** Marca cada celda con su letra de columna (A..M), como en el libro. */
+function cerrar(fila) {
+  let columna = 0;
+  [...fila.children].forEach((td) => {
+    td.dataset.col = String.fromCharCode(65 + columna);
+    columna += Number(td.getAttribute('colspan') || 1);
   });
-  if (linea.aislador && !(S.proyecto.aisladores || []).some((a) => a.nombre === linea.aislador)) {
-    const perdida = el('option', { value: linea.aislador }, `${linea.aislador} — no está en el catálogo`);
-    perdida.selected = true;
-    select.append(perdida);
-  }
-  select.addEventListener('change', () => {
-    linea.aislador = select.value;
-    renderEditor();
-    evaluar();
-  });
-  return select;
+  return fila;
 }
 
 // --------------------------------------------------------------- editor
@@ -382,246 +253,335 @@ function renderEditor() {
   if (!g) return;
   const r = S.resultados[S.activa];
 
-  host.append(el('div', { class: 'xl-dos' }, bloqueParametros(g), bloqueSeleccion(g)));
-  host.append(bloqueTransversal(g, r));
-  host.append(bloqueVertical(g, r));
-  host.append(bloqueMomentos(g, r));
+  const cuerpo = el('tbody', {});
+  filasCabecera(cuerpo, g);
+  filasParametros(cuerpo, g);
+  cuerpo.append(vacia());
+  filasTransversal(cuerpo, g, r);
+  cuerpo.append(vacia());
+  filasVertical(cuerpo, g, r);
+  cuerpo.append(vacia());
+  filasMomentos(cuerpo, g, r);
+
+  const grupo = el('colgroup', {}, ...ANCHOS.map((w) => el('col', { style: `width:${w}px` })));
+  host.append(el('div', { class: 'hoja-scroll' },
+    el('table', { class: 'hoja' }, grupo, cuerpo)));
+  host.append(pieHoja(g));
 }
 
-// --- 1. parámetros generales
-function bloqueParametros(g) {
-  const caja = bloque('1. Parámetros generales');
-  const cuerpo = el('tbody', {});
-  PARAMETROS.forEach(([clave, simbolo, descripcion, unidad, paso]) => {
-    cuerpo.append(filaParam(simbolo, descripcion, celdaEd(g, clave, paso), unidad));
-  });
-  const enterramiento = (g.ht_m || 0) / 6;
-  cuerpo.append(filaParam('', 'Enterramiento', celdaCalc(enterramiento), 'm'));
-  cuerpo.append(filaParam('', 'Altura efectiva', celdaCalc((g.ht_m || 0) - enterramiento), 'm'));
-  caja.append(el('table', {}, cuerpo));
+function filasCabecera(cuerpo, g) {
+  const nombre = entrada(g, 'nombre', null, () => { renderTabs(); evaluarDiferido(); }, { texto: true });
+  nombre.classList.add('titulo');
+  cuerpo.append(cerrar(el('tr', { class: 'titulo' }, cel(nombre, { colspan: COLS, clase: 'am' }))));
+}
 
+function filasParametros(cuerpo, g) {
+  cuerpo.append(banda('1. Parámetros generales'));
+  const enterramiento = (g.ht_m || 0) / 6;
+  const params = [
+    ['FS', 'Factor de succión.', 'fs', '-', 0.01],
+    ['Nc', 'Número de conductores por fase, [un].', 'nc', 'un', 1],
+    ['e', 'Espesor de hielo, [mm].', 'espesor_hielo_mm', 'mm', 0.1],
+    ['Ncad', 'Número de cadenas de aisladores, [un].', 'n_cadenas', 'un', 1],
+    ['Naisl', 'Número de aisladores, [un].', 'n_aisladores', 'un', 1],
+    ['α', 'Ángulo de deflexión de la línea, [°].', 'alpha_deg', '°', 0.01],
+    ['Ht', 'Altura total del poste.', 'ht_m', 'm', 0.1],
+    ['Tservicio', 'Carga de servicio en la punta del poste.', 't_servicio_kg', 'kg', 1],
+    ['', 'Enterramiento', null, 'm', null, enterramiento],
+    ['', 'Altura efectiva', null, 'm', null, (g.ht_m || 0) - enterramiento],
+    ['Pv', 'Presión de viento máximo, [kg/m²].', 'pv_kg_m2', 'kg/m²', 1],
+  ];
+
+  const filas = Math.max(params.length, g.lineas.length + 1, g.estructuras.length + 1, g.casos.length + 1);
+  for (let i = 0; i < filas; i += 1) {
+    const fila = el('tr', {});
+    const p = params[i];
+    if (p) {
+      const [simbolo, descripcion, clave, unidad, paso, calculado] = p;
+      fila.append(cel(simbolo, { clase: 'sim' }), cel(descripcion, { clase: 'txt' }));
+      fila.append(clave ? celAm(entrada(g, clave, paso, () => { renderEditor(); evaluar(); }))
+                        : celNum(calculado, 2));
+      fila.append(cel(unidad, { clase: 'uni' }));
+    } else {
+      fila.append(cel(''), cel(''), cel(''), cel(''));
+    }
+    fila.append(cel(''));  // E, separador como en el libro
+
+    if (i === 0) {
+      fila.append(cel("Set's", { clase: 'am cab' }), cel('N° Fase x set', { clase: 'am cab' }),
+        cel('Nombre', { clase: 'am cab' }), cel(''),
+        cel('Estructura(s) a evaluar', { clase: 'am cab' }), cel('N° postes', { clase: 'cab' }),
+        cel('Casos climáticos a evaluar', { clase: 'am cab' }), cel(''));
+    } else {
+      const j = i - 1;
+      const linea = g.lineas[j];
+      fila.append(
+        celAm(linea ? selectorLinea(linea) : selectorLineaVacia(g)),
+        linea ? celAm(entrada(linea, 'fases', 1, () => ajustarFases(linea))) : cel(''),
+        linea ? celAm(entrada(linea, 'nombre', null, evaluarDiferido, { texto: true })) : cel(''),
+        cel(''),
+        celAm(selectorEstructura(g, j)),
+        i === 1 ? celAm(entrada(g, 'n_postes', 1)) : cel(''),
+        celAm(selectorCaso(g, j)),
+        cel(''));
+    }
+    cuerpo.append(cerrar(fila));
+  }
+}
+
+function filasTransversal(cuerpo, g, r) {
+  cuerpo.append(banda('2. Cargas transversales y longitudinales'));
+  const cab = el('tr', { class: 'cab' },
+    cel('Set', { clase: 'cab' }),
+    cel('Diámetro del conductor, [mm].', { clase: 'cab am' }),
+    cel('Diámetro del aislador, [mm].', { clase: 'cab am' }),
+    cel('Longitud del aislador, [mm].', { clase: 'cab am' }),
+    cel('Luz viento, [m].', { clase: 'cab' }),
+    cel('Tensión longitudinal por cada conductor del set, [kg].', { clase: 'cab' }),
+    cel('Carga transversal por cada conductor del set, [kg].', { clase: 'cab' }),
+    cel(''), cel(''),
+    cel('Carga transversal admisible', { clase: 'cab' }),
+    cel(n2(r && r.transversal_admisible), { clase: 'num rojo', calc: 'total.transv_adm', dec: 2 }));
+  cuerpo.append(rellenar(cab, 11));
+
+  g.lineas.forEach((linea, i) => {
+    const res = r && r.lineas[i];
+    const fila = el('tr', { 'data-bloque': '2' },
+      cel(linea.set_no, { clase: 'sim' }),
+      celAm(entrada(linea, 'diametro_conductor_mm', 0.0001)),
+      celAm(entrada(linea, 'diam_aislador_mm', 0.1)),
+      celAm(entrada(linea, 'long_aislador_mm', 1)),
+      celNum(res && res.luz_viento, 1, `l${i}.luz_viento`, 'rojo'),
+      celNum(res && res.tension_kg, 2, `l${i}.tension`, 'rojo'),
+      celNum(res && res.carga_transversal, 2, `l${i}.transversal`, 'rojo'),
+      cel(''), cel(''));
+    if (i === 0) {
+      const excede = r && r.transversal_calculada > r.transversal_admisible;
+      fila.append(cel('Carga transversal calculada', { clase: `cab ${excede ? 'malo' : 'bueno'}` }));
+      fila.append(cel(n2(r && r.transversal_calculada),
+        { clase: `num rojo ${excede ? 'malo' : 'bueno'}`, calc: 'total.transv', dec: 2 }));
+    } else {
+      fila.append(cel(''), cel(''));
+    }
+    cuerpo.append(rellenar(fila, 11));
+  });
+  if (!g.lineas.length) {
+    cuerpo.append(rellenar(el('tr', {}, cel('Sin sets elegidos todavía.', { clase: 'txt', colspan: 7 })), 7));
+  }
+}
+
+function filasVertical(cuerpo, g, r) {
+  cuerpo.append(banda('3. Cargas verticales'));
+  const cab = el('tr', { class: 'cab' },
+    cel('Set', { clase: 'cab' }),
+    cel('Número de conductores por fase, [un].', { clase: 'cab am' }),
+    cel('Peso del conductor, [kg/m].', { clase: 'cab am' }),
+    cel('Peso del aislador, [kg].', { clase: 'cab am' }),
+    cel('Número de aisladores, [un].', { clase: 'cab am' }),
+    cel('Peso de la ferretería y accesorios, [kg]', { clase: 'cab am' }),
+    cel('Luz peso, [m].', { clase: 'cab' }),
+    cel('Carga vertical por cada conductor del set [kg]', { clase: 'cab' }));
+  cuerpo.append(rellenar(cab, 8));
+
+  g.lineas.forEach((linea, i) => {
+    const res = r && r.lineas[i];
+    cuerpo.append(rellenar(el('tr', { 'data-bloque': '3' },
+      cel(linea.set_no, { clase: 'sim' }),
+      celAm(entrada(linea, 'n_conductores', 1)),
+      celAm(entrada(linea, 'peso_conductor_kg_m', 0.000001)),
+      celAm(entrada(linea, 'peso_aislador_kg', 0.1)),
+      celAm(entrada(linea, 'n_aisladores', 1)),
+      celAm(entrada(linea, 'peso_ferreteria_kg', 0.1)),
+      celNum(res && res.luz_peso, 1, `l${i}.luz_peso`, 'rojo'),
+      celNum(res && res.carga_vertical, 2, `l${i}.vertical`, 'rojo')), 8));
+  });
+}
+
+function filasMomentos(cuerpo, g, r) {
+  cuerpo.append(banda('4. Momentos'));
+  const cab = el('tr', { class: 'cab' },
+    cel('Set', { clase: 'cab' }), cel('Fase', { clase: 'cab' }),
+    cel('Attach. Dist. Below Top (m)', { clase: 'am cab' }),
+    cel('Carga transversal, [kg].', { clase: 'cab' }),
+    cel(''),
+    cel('Attach. Dist. Below Top (m), unique', { clase: 'cab' }),
+    cel('Momento calculado por altura vertical kg*m', { clase: 'cab' }),
+    cel(''), cel(''),
+    cel('Momento admisible kg*m', { clase: 'cab' }),
+    cel(n2(r && r.momento_admisible), { clase: 'num rojo', calc: 'total.momento_adm', dec: 2 }));
+  cuerpo.append(rellenar(cab, 11));
+
+  const fases = [];
+  g.lineas.forEach((linea, i) => {
+    for (let f = 0; f < linea.fases; f += 1) fases.push({ linea, i, fase: f });
+  });
+  const momentos = (r && r.momentos) || [];
+  const filas = Math.max(fases.length, momentos.length, 1);
+
+  for (let k = 0; k < filas; k += 1) {
+    const fila = el('tr', { 'data-bloque': '4' });
+    const item = fases[k];
+    if (item) {
+      const input = el('input', { type: 'number', step: '0.01', value: item.linea.alturas_amarre[item.fase] ?? 0 });
+      input.addEventListener('input', () => {
+        item.linea.alturas_amarre[item.fase] = input.value === '' ? 0 : Number(input.value);
+        evaluarDiferido();
+      });
+      const res = r && r.lineas[item.i];
+      fila.append(cel(item.linea.set_no, { clase: 'sim' }), cel(item.fase + 1, { clase: 'uni' }),
+        celAm(input), celNum(res && res.carga_transversal, 2, `l${item.i}.transversal`, 'rojo'));
+    } else {
+      fila.append(cel(''), cel(''), cel(''), cel(''));
+    }
+    fila.append(cel(''));
+    const m = momentos[k];
+    fila.append(celNum(m && m.altura_amarre, 2, `mom${k}.altura`, 'rojo'),
+                celNum(m && m.momento, 4, `mom${k}.momento`, 'rojo'));
+    fila.append(cel(''), cel(''));
+    if (k === 0) {
+      const excede = r && r.momento_calculado > r.momento_admisible;
+      fila.append(cel('Momento calculado kg*m', { clase: `cab ${excede ? 'malo' : 'bueno'}` }));
+      fila.append(cel(n2(r && r.momento_calculado),
+        { clase: `num rojo ${excede ? 'malo' : 'bueno'}`, calc: 'total.momento', dec: 2 }));
+    } else {
+      fila.append(cel(''), cel(''));
+    }
+    cuerpo.append(rellenar(fila, 11));
+  }
+}
+
+function pieHoja(g) {
   const pie = el('div', { class: 'xl-pie' });
   pie.append(el('button', {
     class: 'ghost small', type: 'button',
-    title: 'Se aplicarán a las hojas nuevas de cualquier proyecto',
-    onclick: () => { guardarDefaults(g); pie.append(el('span', { class: 'badge ok', text: 'guardados' })); },
-  }, 'Guardar como valores por defecto'));
+    onclick: () => {
+      g.lineas = S.opciones.map(lineaNueva);
+      renderEditor(); evaluar();
+    },
+  }, 'Añadir todos los sets disponibles'));
   pie.append(el('button', {
-    class: 'ghost small', type: 'button',
-    onclick: () => { Object.assign(g, leerDefaults()); renderEditor(); evaluar(); },
-  }, 'Restaurar mis valores'));
-  caja.append(pie);
-
-  // Altura y carga admisible que trae el reporte para ese tipo de poste.
+    class: 'ghost small', type: 'button', title: 'Se aplicarán a las hojas nuevas',
+    onclick: () => { guardarDefaults(g); pie.append(el('span', { class: 'badge ok', text: 'guardados' })); },
+  }, 'Guardar parámetros por defecto'));
   const p = S.poste;
   if (p && (p.altura_m !== null || p.transversal_kg !== null)) {
     const iguales = (p.altura_m === null || Math.abs(p.altura_m - g.ht_m) < 1e-9)
       && (p.transversal_kg === null || Math.abs(p.transversal_kg - g.t_servicio_kg) < 1e-9);
     if (!iguales) {
-      const usar = el('a', {
-        onclick: () => {
-          if (p.altura_m !== null) g.ht_m = p.altura_m;
-          if (p.transversal_kg !== null) g.t_servicio_kg = p.transversal_kg;
-          renderEditor(); evaluar();
-        },
-      }, 'usar estos valores');
-      caja.append(el('div', { class: 'pista' },
-        `El reporte indica ${p.altura_m ?? '—'} m y ${p.transversal_kg ?? '—'} kg `
-        + `para ${(p.archivos || []).join(', ') || 'este poste'} — `, usar));
+      pie.append(el('span', { class: 'pista-linea' },
+        `El reporte indica ${p.altura_m ?? '—'} m y ${p.transversal_kg ?? '—'} kg para `
+        + `${(p.archivos || []).join(', ') || 'este poste'} — `,
+        el('a', {
+          onclick: () => {
+            if (p.altura_m !== null) g.ht_m = p.altura_m;
+            if (p.transversal_kg !== null) g.t_servicio_kg = p.transversal_kg;
+            renderEditor(); evaluar();
+          },
+        }, 'usar estos valores')));
     }
-    (p.avisos || []).forEach((a) => caja.append(el('div', { class: 'pista', text: a })));
+    (p.avisos || []).forEach((a) => pie.append(el('span', { class: 'pista-linea', text: a })));
   }
-  return caja;
+  return pie;
 }
 
-// --- estructuras, casos y nombre de la hoja
-function bloqueSeleccion(g) {
-  const caja = bloque('Alcance de la hoja');
-  const cuerpo = el('tbody', {});
-  const nombre = el('input', { type: 'text', value: g.nombre });
-  nombre.addEventListener('input', () => { g.nombre = nombre.value; renderTabs(); evaluarDiferido(); });
-  cuerpo.append(el('tr', {}, el('td', { class: 't', text: 'Nombre de la hoja' }),
-    el('td', { class: 'ed' }, nombre)));
-  cuerpo.append(el('tr', {}, el('td', { class: 't', text: 'N.º de postes' }),
-    celdaEd(g, 'n_postes', 1, { min: 1 })));
-  caja.append(el('table', {}, cuerpo));
+// ------------------------------------------------------------ selectores
+function claveOpcion(s, c) { return `${s}|${Number(c).toFixed(6)}`; }
 
-  const pie = el('div', { style: 'padding:12px' });
-  pie.append(el('label', { class: 'field' }, 'Estructuras a evaluar'));
-  pie.append(chips(S.estructuras.map((e) => e.key), g.estructuras,
-    () => { renderEditor(); refrescarOpciones(); }));
-  pie.append(el('label', { class: 'field', style: 'margin-top:14px' }, 'Casos climáticos'));
-  pie.append(chips(S.casos, g.casos, () => { renderEditor(); refrescarOpciones(); }));
-  caja.append(pie);
-  return caja;
-}
+/** Etiqueta del set: el número y, entre paréntesis, el cable que lleva. */
+function etiquetaOpcion(o) { return `${o.set} (${Number(o.cable)} daN/m)`; }
 
-// --- 2. cargas transversales y longitudinales
-function bloqueTransversal(g, r) {
-  const caja = bloque('2. Cargas transversales y longitudinales');
-  const tabla = el('table', {}, cabecera(
-    'Set · cable', 'Fases', 'Ø conductor [mm]', 'Cadena de aisladores', 'Ø aislador [mm]',
-    'Longitud aislador [mm]', 'Luz viento [m]', 'Tensión longitudinal [kg]',
-    'Carga transversal [kg]', ''));
-  const cuerpo = el('tbody', {});
-  g.lineas.forEach((linea, i) => {
-    const res = r && r.lineas[i];
-    cuerpo.append(el('tr', {},
-      el('td', { class: 'ed' }, selectorLinea(linea)),
-      celdaEd(linea, 'fases', 1, { min: 1, alCambiar: () => ajustarFases(linea) }),
-      celdaCalc(conductorDe(linea).diametro_mm, 4, false, `l${i}.diam`),
-      el('td', { class: 'ed' }, selectorAislador(linea)),
-      celdaCalc(aisladorDe(linea).diametro_mm, 1, false, `l${i}.ais_diam`),
-      celdaCalc(aisladorDe(linea).longitud_mm, 1, false, `l${i}.ais_long`),
-      celdaCalc(res && res.luz_viento, 1, false, `l${i}.luz_viento`),
-      celdaCalc(res && res.tension_kg, 2, false, `l${i}.tension`),
-      celdaCalc(res && res.carga_transversal, 2, true, `l${i}.transversal`),
-      el('td', { class: 't' }, el('button', {
-        class: 'btn-x', type: 'button', title: 'Quitar línea',
-        onclick: () => { g.lineas.splice(i, 1); renderEditor(); evaluar(); },
-      }, '×'))));
+function opcionesSet(seleccionada) {
+  return S.opciones.map((o) => {
+    const v = claveOpcion(o.set, o.cable);
+    const opcion = el('option', { value: v, title: `${o.amarres} amarre(s), máx ${n2(o.tension_max, 1)} kg` },
+      etiquetaOpcion(o));
+    if (v === seleccionada) opcion.selected = true;
+    return opcion;
   });
-  if (!g.lineas.length) {
-    cuerpo.append(el('tr', {}, el('td', { class: 't', colspan: '9', text: 'Sin líneas de conductor todavía.' })));
-  }
-  // Las filas de veredicto se pintan siempre: refrescarCalculos() rellena sus
-  // celdas después, sin tener que rehacer la tabla.
-  cuerpo.append(el('tr', { class: 'veredicto' },
-    el('td', { class: 't', colspan: '8' }, 'Carga transversal admisible [kg]'),
-    celdaCalc(r && r.transversal_admisible, 2, false, 'total.transv_adm'), el('td', {})));
-  const excede = r && r.transversal_calculada > r.transversal_admisible;
-  cuerpo.append(el('tr', { class: 'veredicto', 'data-veredicto': 'transversal' },
-    el('td', { class: `t ${excede ? 'malo' : 'bueno'}`, colspan: '8' }, 'Carga transversal calculada [kg]'),
-    celdaCalc(r && r.transversal_calculada, 2, true, 'total.transv'),
-    el('td', {})));
-  tabla.append(cuerpo);
-  caja.append(tabla);
-  caja.append(pieLineas(g));
-  return caja;
 }
 
-// --- 3. cargas verticales
-function bloqueVertical(g, r) {
-  const caja = bloque('3. Cargas verticales');
-  const tabla = el('table', {}, cabecera(
-    'Set · cable', 'Cadena', 'Conductores por fase', 'Peso conductor [kg/m]',
-    'Peso aislador [kg]', 'N.º de aisladores', 'Ferretería [kg]', 'Luz peso [m]',
-    'Carga vertical [kg]'));
-  const cuerpo = el('tbody', {});
-  g.lineas.forEach((linea, i) => {
-    const res = r && r.lineas[i];
-    const conductor = conductorDe(linea);
-    const cadena = aisladorDe(linea);
-    const peso = conductor.peso_dan_m ?? conductor.cable;
-    // Todo viene de los catálogos: aquí no hay nada que escribir.
-    cuerpo.append(el('tr', {},
-      el('td', { class: 't', text: etiquetaLinea(linea) }),
-      el('td', { class: 't', text: linea.aislador || '—' }),
-      celdaCalc(conductor.n_conductores, 0, false, `l${i}.ncond`),
-      celdaCalc(peso === undefined ? null : peso * 1.019716, 6, false, `l${i}.peso`),
-      celdaCalc(cadena.peso_kg, 2, false, `l${i}.ais_peso`),
-      celdaCalc(cadena.n_aisladores, 0, false, `l${i}.ais_n`),
-      celdaCalc(cadena.peso_ferreteria_kg, 2, false, `l${i}.ais_ferr`),
-      celdaCalc(res && res.luz_peso, 1, false, `l${i}.luz_peso`),
-      celdaCalc(res && res.carga_vertical, 2, true, `l${i}.vertical`)));
-  });
-  cuerpo.append(el('tr', { class: 'veredicto' },
-    el('td', { class: 't', colspan: '8' }, 'Carga vertical total (× fases) [kg]'),
-    celdaCalc(r && r.vertical_total, 2, true, 'total.vertical')));
-  tabla.append(cuerpo);
-  caja.append(tabla);
-  return caja;
+/** Al elegir un set se adelanta el peso del conductor que da el reporte.
+ *  Queda editable: el reporte redondea la carga vertical a dos decimales. */
+function aplicarSet(linea, valor) {
+  const [s, c] = valor.split('|');
+  linea.set_no = s;
+  linea.cable = Number(c);
+  if (!linea.peso_conductor_kg_m) linea.peso_conductor_kg_m = Number((linea.cable * 1.019716).toFixed(6));
 }
 
-// --- 4. momentos
-function bloqueMomentos(g, r) {
-  const caja = bloque('4. Momentos');
-  const tabla = el('table', {}, cabecera(
-    'Set · cable', 'Fase', 'Altura de amarre bajo la punta [m]', 'Carga transversal [kg]'));
-  const cuerpo = el('tbody', {});
-  g.lineas.forEach((linea, i) => {
-    const res = r && r.lineas[i];
-    for (let f = 0; f < linea.fases; f += 1) {
-      const input = el('input', { type: 'number', step: '0.01', value: linea.alturas_amarre[f] ?? 0 });
-      input.addEventListener('input', () => {
-        linea.alturas_amarre[f] = input.value === '' ? 0 : Number(input.value);
-        evaluarDiferido();
-      });
-      cuerpo.append(el('tr', {},
-        el('td', { class: 't', text: f === 0 ? etiquetaLinea(linea) : '' }),
-        el('td', { class: 'uni', text: String(f + 1) }),
-        el('td', { class: 'ed' }, input),
-        celdaCalc(res && res.carga_transversal, 2, false, `l${i}.transversal`)));
-    }
-  });
-  tabla.append(cuerpo);
-  caja.append(tabla);
-
-  // Las alturas únicas cambian al editarlas, así que esta tabla se rehace
-  // entera; los campos editables viven en la tabla de arriba y no se tocan.
-  const resumenMomentos = el('div', { id: 'momentos-resumen' });
-  caja.append(resumenMomentos);
-  pintarMomentos(resumenMomentos, r);
-
-  caja.append(el('div', { id: 'avisos-hoja' }));
-  pintarAvisosHoja(r);
-  return caja;
-}
-
-function pintarMomentos(host, r) {
-  host.replaceChildren();
-  if (!r || !r.momentos.length) return;
-  const mt = el('table', {}, cabecera('Altura de amarre [m]', 'Brazo [m]', 'Momento [kg·m]', ''));
-  const mc = el('tbody', {});
-  r.momentos.forEach((m) => mc.append(el('tr', {},
-    celdaCalc(m.altura_amarre), celdaCalc(m.brazo), celdaCalc(m.momento), el('td', {}))));
-  mc.append(el('tr', { class: 'veredicto' },
-    el('td', { class: 't', colspan: '2' }, 'Momento admisible [kg·m]'),
-    celdaCalc(r.momento_admisible, 2), el('td', {})));
-  const excede = r.momento_calculado > r.momento_admisible;
-  mc.append(el('tr', { class: 'veredicto' },
-    el('td', { class: `t ${excede ? 'malo' : 'bueno'}`, colspan: '2' }, 'Momento calculado [kg·m]'),
-    el('td', { class: `calc fuerte ${excede ? 'malo' : 'bueno'}`, text: n2(r.momento_calculado) }),
-    el('td', { class: excede ? 'malo' : 'bueno' })));
-  mt.append(mc);
-  host.append(mt);
-}
-
-function pintarAvisosHoja(r) {
-  const host = $('#avisos-hoja');
-  if (!host) return;
-  host.replaceChildren();
-  const avisos = [...((r && r.avisos) || [])];
-  if (r) r.lineas.forEach((l) => (l.avisos || []).forEach((a) => avisos.push(`Set ${l.set_no}: ${a}`)));
-  [...new Set(avisos)].forEach((a) => host.append(el('div', { class: 'pista', text: a })));
-}
-
-// --- selector (set, cable) y utilidades de línea
 function selectorLinea(linea) {
   const select = el('select', {});
-  const clave = (s, c) => `${s}|${Number(c).toFixed(6)}`;
-  const actual = clave(linea.set_no, linea.cable);
-  let encontrado = false;
-  S.opciones.forEach((o) => {
-    const v = clave(o.set, o.cable);
-    const opcion = el('option', { value: v },
-      `${o.etiqueta} — ${o.amarres} amarre(s), máx ${n2(o.tension_max, 1)} kg`);
-    if (v === actual) { opcion.selected = true; encontrado = true; }
-    select.append(opcion);
-  });
-  if (!encontrado) {
+  const actual = claveOpcion(linea.set_no, linea.cable);
+  const opciones = opcionesSet(actual);
+  select.append(...opciones);
+  if (!opciones.some((o) => o.selected)) {
     const perdida = el('option', { value: actual },
-      `Set ${linea.set_no} · ${Number(linea.cable)} daN/m — no está en estas estructuras`);
+      `${linea.set_no} (${Number(linea.cable)} daN/m) — no está aquí`);
     perdida.selected = true;
     select.prepend(perdida);
   }
+  select.append(el('option', { value: '' }, '— quitar —'));
   select.addEventListener('change', () => {
-    const [s, c] = select.value.split('|');
-    linea.set_no = s;
-    linea.cable = Number(c);
-    sincronizarCatalogo();
+    const g = grupoActivo();
+    if (select.value === '') g.lineas.splice(g.lineas.indexOf(linea), 1);
+    else aplicarSet(linea, select.value);
     renderEditor();
     evaluar();
+  });
+  return select;
+}
+
+/** Fila en blanco al final: elegir un set añade una línea nueva. */
+function selectorLineaVacia(g) {
+  const select = el('select', {});
+  select.append(el('option', { value: '' }, '—'));
+  select.append(...opcionesSet(null));
+  select.addEventListener('change', () => {
+    if (!select.value) return;
+    const linea = { set_no: '', cable: 0, nombre: '', fases: 1,
+      diametro_conductor_mm: 0, diam_aislador_mm: 0, long_aislador_mm: 0,
+      n_conductores: 1, peso_conductor_kg_m: 0, peso_aislador_kg: 0,
+      n_aisladores: 0, peso_ferreteria_kg: 0, alturas_amarre: [0] };
+    aplicarSet(linea, select.value);
+    g.lineas.push(linea);
+    renderEditor();
+    evaluar();
+  });
+  return select;
+}
+
+function selectorEstructura(g, indice) {
+  const select = el('select', {});
+  select.append(el('option', { value: '' }, '—'));
+  S.estructuras.forEach((e) => {
+    const usada = g.estructuras.includes(e.key) && g.estructuras[indice] !== e.key;
+    const opcion = el('option', { value: e.key, ...(usada ? { disabled: 'disabled' } : {}) }, e.key);
+    if (g.estructuras[indice] === e.key) opcion.selected = true;
+    select.append(opcion);
+  });
+  select.addEventListener('change', () => {
+    if (select.value === '') g.estructuras.splice(indice, 1);
+    else if (indice < g.estructuras.length) g.estructuras[indice] = select.value;
+    else g.estructuras.push(select.value);
+    renderEditor(); refrescarOpciones();
+  });
+  return select;
+}
+
+function selectorCaso(g, indice) {
+  const select = el('select', {});
+  select.append(el('option', { value: '' }, '—'));
+  S.casos.forEach((caso) => {
+    const usado = g.casos.includes(caso) && g.casos[indice] !== caso;
+    const opcion = el('option', { value: caso, ...(usado ? { disabled: 'disabled' } : {}) }, caso);
+    if (g.casos[indice] === caso) opcion.selected = true;
+    select.append(opcion);
+  });
+  select.addEventListener('change', () => {
+    if (select.value === '') g.casos.splice(indice, 1);
+    else if (indice < g.casos.length) g.casos[indice] = select.value;
+    else g.casos.push(select.value);
+    renderEditor(); refrescarOpciones();
   });
   return select;
 }
@@ -637,31 +597,49 @@ function ajustarFases(linea) {
   evaluar();
 }
 
-function lineaNueva(opcion) {
-  const cadenas = S.proyecto.aisladores || [];
-  return {
-    set_no: opcion ? opcion.set : '', cable: opcion ? opcion.cable : 0,
-    fases: 1, aislador: cadenas.length ? cadenas[0].nombre : '', alturas_amarre: [0],
-  };
+/** Una línea está vacía si no se ha escrito nada en ella. El peso del
+ *  conductor no cuenta si sigue siendo el que se adelantó del reporte. */
+function lineaVacia(linea) {
+  const numeros = ['diametro_conductor_mm', 'diam_aislador_mm', 'long_aislador_mm',
+    'peso_aislador_kg', 'n_aisladores', 'peso_ferreteria_kg'];
+  const adelantado = Number((linea.cable * 1.019716).toFixed(6));
+  const pesoIntacto = !linea.peso_conductor_kg_m
+    || Math.abs(linea.peso_conductor_kg_m - adelantado) < 1e-9;
+  return !linea.nombre
+    && pesoIntacto
+    && numeros.every((k) => !linea[k])
+    && (linea.alturas_amarre || []).every((a) => !a);
 }
 
-function pieLineas(g) {
-  const pie = el('div', { class: 'xl-pie' });
-  pie.append(el('button', {
-    class: 'ghost small', type: 'button',
-    onclick: () => { g.lineas.push(lineaNueva(S.opciones[0])); sincronizarCatalogo(); renderEditor(); evaluar(); },
-  }, '+ Añadir línea'));
-  pie.append(el('button', {
-    class: 'ghost small', type: 'button',
-    title: 'Una línea por cada par (set, cable) disponible en estas estructuras',
-    onclick: () => {
-      g.lineas = S.opciones.map(lineaNueva);
-      sincronizarCatalogo(); renderEditor(); evaluar();
-    },
-  }, 'Añadir todas las disponibles'));
-  pie.append(el('span', { class: 'muted', style: 'align-self:center;font-size:12.5px' },
-    'Cada línea es un par (set, cable): así no puede mezclar dos conductores.'));
-  return pie;
+/** Pone una fila por cada par (set, cable) que exista en las estructuras y los
+ *  casos elegidos. Lo que ya se escribió no se toca: solo se retiran las filas
+ *  que se habían puesto solas, siguen vacías y ya no existen. */
+function preseleccionarSets() {
+  const g = grupoActivo();
+  if (!g) return;
+  const disponibles = new Set(S.opciones.map((o) => claveOpcion(o.set, o.cable)));
+  g.lineas = g.lineas.filter(
+    (l) => disponibles.has(claveOpcion(l.set_no, l.cable)) || !lineaVacia(l));
+
+  const presentes = new Set(g.lineas.map((l) => claveOpcion(l.set_no, l.cable)));
+  S.opciones.forEach((o) => {
+    const clave = claveOpcion(o.set, o.cable);
+    if (!presentes.has(clave)) {
+      presentes.add(clave);
+      g.lineas.push(lineaNueva(o));
+    }
+  });
+  // En el mismo orden que el reporte: por número de set y luego por cable.
+  g.lineas.sort((a, b) => (Number(a.set_no) - Number(b.set_no)) || (a.cable - b.cable));
+}
+
+function lineaNueva(opcion) {
+  const linea = { set_no: '', cable: 0, nombre: '', fases: 1,
+    diametro_conductor_mm: 0, diam_aislador_mm: 0, long_aislador_mm: 0,
+    n_conductores: 1, peso_conductor_kg_m: 0, peso_aislador_kg: 0,
+    n_aisladores: 0, peso_ferreteria_kg: 0, alturas_amarre: [0] };
+  if (opcion) aplicarSet(linea, claveOpcion(opcion.set, opcion.cable));
+  return linea;
 }
 
 // ------------------------------------------------------------- opciones
@@ -674,6 +652,7 @@ async function refrescarOpciones() {
     });
     S.opciones = r.opciones;
     S.poste = r.poste || null;
+    preseleccionarSets();
     renderEditor();
     evaluar();
   } catch (e) {
@@ -732,50 +711,62 @@ function pintarResumen() {
 }
 
 /** Actualiza solo las celdas calculadas de la hoja activa.
- *  Reconstruir el DOM en cada tecleo le robaría el foco al campo en edición. */
+ *  Reconstruir el DOM en cada tecleo le robaría el foco al campo en edición.
+ *  Las filas nunca cambian de número: hay una por fase, y las alturas únicas
+ *  nunca son más que las fases. */
 function refrescarCalculos() {
   const host = $('#editor-hoja');
   const g = grupoActivo();
   const r = S.resultados[S.activa];
   if (!host || !g || !r) return;
 
-  const valores = { 'total.transv': r.transversal_calculada,
-                    'total.transv_adm': r.transversal_admisible,
-                    'total.vertical': r.vertical_total };
+  const valores = {
+    'total.transv': r.transversal_calculada,
+    'total.transv_adm': r.transversal_admisible,
+    'total.momento': r.momento_calculado,
+    'total.momento_adm': r.momento_admisible,
+  };
   r.lineas.forEach((l, i) => {
-    const linea = g.lineas[i] || {};
-    const conductor = conductorDe(linea);
-    const cadena = aisladorDe(linea);
-    const peso = conductor.peso_dan_m ?? conductor.cable;
     Object.assign(valores, {
-      [`l${i}.ncond`]: conductor.n_conductores,
-      [`l${i}.ais_diam`]: cadena.diametro_mm,
-      [`l${i}.ais_long`]: cadena.longitud_mm,
-      [`l${i}.ais_peso`]: cadena.peso_kg,
-      [`l${i}.ais_n`]: cadena.n_aisladores,
-      [`l${i}.ais_ferr`]: cadena.peso_ferreteria_kg,
       [`l${i}.luz_viento`]: l.luz_viento,
       [`l${i}.tension`]: l.tension_kg,
       [`l${i}.transversal`]: l.carga_transversal,
       [`l${i}.luz_peso`]: l.luz_peso,
       [`l${i}.vertical`]: l.carga_vertical,
-      [`l${i}.diam`]: conductor.diametro_mm,
-      [`l${i}.peso`]: peso === undefined ? null : peso * 1.019716,
     });
   });
+  host.querySelectorAll('[data-calc^="mom"]').forEach((celda) => { celda.textContent = ''; });
+  r.momentos.forEach((m, k) => {
+    valores[`mom${k}.altura`] = m.altura_amarre;
+    valores[`mom${k}.momento`] = m.momento;
+  });
+
   host.querySelectorAll('[data-calc]').forEach((celda) => {
     const clave = celda.dataset.calc;
     if (clave in valores) celda.textContent = n2(valores[clave], Number(celda.dataset.dec || 2));
   });
 
-  const excede = r.transversal_calculada > r.transversal_admisible;
-  host.querySelectorAll('[data-veredicto="transversal"] td').forEach((celda) => {
-    celda.classList.toggle('malo', excede);
-    celda.classList.toggle('bueno', !excede);
-  });
+  marcarVeredicto(host, 'total.transv', r.transversal_calculada > r.transversal_admisible);
+  marcarVeredicto(host, 'total.momento', r.momento_calculado > r.momento_admisible);
 
-  pintarMomentos($('#momentos-resumen'), r);
-  pintarAvisosHoja(r);
+  const avisos = [...(r.avisos || [])];
+  r.lineas.forEach((l) => (l.avisos || []).forEach((a) => avisos.push(`Set ${l.set_no}: ${a}`)));
+  const pie = host.querySelector('.xl-pie');
+  if (pie) {
+    pie.querySelectorAll('.pista-aviso').forEach((n) => n.remove());
+    [...new Set(avisos)].forEach((a) => pie.append(el('span', { class: 'pista-linea pista-aviso', text: a })));
+  }
+}
+
+function marcarVeredicto(host, clave, excede) {
+  const celda = host.querySelector(`[data-calc="${clave}"]`);
+  if (!celda) return;
+  const etiqueta = celda.previousElementSibling;
+  [celda, etiqueta].forEach((n) => {
+    if (!n) return;
+    n.classList.toggle('malo', excede);
+    n.classList.toggle('bueno', !excede);
+  });
 }
 
 // ------------------------------------------------------------- respaldo

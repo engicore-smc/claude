@@ -16,15 +16,16 @@ import openpyxl
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from .mecanicas import Aislador, Conductor, Grupo, Linea, ResultadoGrupo
+from .mecanicas import Grupo, Linea, ResultadoGrupo
 
-VERSION = 2
+VERSION = 3
 HOJA_PROYECTO = "Respaldo_proyecto"
 HOJA_CONDUCTORES = "Respaldo_conductores"
 HOJA_GRUPOS = "Respaldo_grupos"
 HOJA_LINEAS = "Respaldo_lineas"
 HOJA_AISLADORES = "Respaldo_aisladores"
-HOJAS_RESPALDO = (HOJA_PROYECTO, HOJA_CONDUCTORES, HOJA_GRUPOS, HOJA_LINEAS)
+# Hojas que identifican un respaldo; están en todas las versiones.
+HOJAS_RESPALDO = (HOJA_PROYECTO, HOJA_GRUPOS, HOJA_LINEAS)
 
 CAB_CONDUCTORES = ["cable_dan_m", "nombre", "diametro_mm", "peso_dan_m", "n_conductores"]
 CAB_AISLADORES = [
@@ -34,13 +35,20 @@ CAB_GRUPOS = [
     "grupo", "estructuras", "casos", "n_postes", "fs", "nc", "espesor_hielo_mm",
     "n_cadenas", "n_aisladores", "alpha_deg", "ht_m", "t_servicio_kg", "pv_kg_m2",
 ]
-CAB_LINEAS = ["grupo", "set", "cable_dan_m", "fases", "aislador", "alturas_amarre"]
+CAB_LINEAS = [
+    "grupo", "set", "cable_dan_m", "nombre", "fases",
+    "diametro_conductor_mm", "diam_aislador_mm", "long_aislador_mm",
+    "n_conductores", "peso_conductor_kg_m", "peso_aislador_kg", "n_aisladores",
+    "peso_ferreteria_kg", "alturas_amarre",
+]
 
-# Columnas del respaldo versión 1, cuando el herraje iba en cada línea.
+# Versiones anteriores: v1 llevaba el herraje en la línea y el conductor en un
+# catálogo; v2 movió también el herraje a un catálogo de aisladores.
 CAB_LINEAS_V1 = [
     "grupo", "set", "cable_dan_m", "fases", "n_conductores", "diam_aislador_mm",
     "long_aislador_mm", "peso_aislador_kg", "n_aisladores", "peso_ferreteria_kg", "alturas_amarre",
 ]
+CAB_LINEAS_V2 = ["grupo", "set", "cable_dan_m", "fases", "aislador", "alturas_amarre"]
 
 _TITULO = Font(bold=True, color="FFFFFF")
 _FONDO = PatternFill("solid", fgColor="1C4E80")
@@ -50,8 +58,6 @@ _FONDO = PatternFill("solid", fgColor="1C4E80")
 class Proyecto:
     nombre: str = "Cargas mecánicas"
     condicion: str = "creep"
-    conductores: dict[float, Conductor] = field(default_factory=dict)
-    aisladores: dict[str, Aislador] = field(default_factory=dict)
     grupos: list[Grupo] = field(default_factory=list)
 
 
@@ -88,19 +94,6 @@ def escribir_respaldo(proyecto: Proyecto, resultados: dict[str, ResultadoGrupo] 
         ["generado", datetime.now().strftime("%Y-%m-%d %H:%M")],
     ])
 
-    ws = libro.create_sheet(HOJA_CONDUCTORES)
-    _tabla(ws, CAB_CONDUCTORES, [
-        [c.cable, c.nombre, c.diametro_mm,
-         c.peso_dan_m if c.peso_dan_m is not None else "", c.n_conductores]
-        for c in sorted(proyecto.conductores.values(), key=lambda c: c.cable)
-    ])
-
-    ws = libro.create_sheet(HOJA_AISLADORES)
-    _tabla(ws, CAB_AISLADORES, [
-        [a.nombre, a.diametro_mm, a.longitud_mm, a.peso_kg, a.n_aisladores, a.peso_ferreteria_kg]
-        for a in proyecto.aisladores.values()
-    ])
-
     ws = libro.create_sheet(HOJA_GRUPOS)
     _tabla(ws, CAB_GRUPOS, [
         [g.nombre, _lista(g.estructuras), _lista(g.casos), g.n_postes, g.fs, g.nc,
@@ -111,7 +104,10 @@ def escribir_respaldo(proyecto: Proyecto, resultados: dict[str, ResultadoGrupo] 
 
     ws = libro.create_sheet(HOJA_LINEAS)
     _tabla(ws, CAB_LINEAS, [
-        [g.nombre, l.set_no, l.cable, l.fases, l.aislador, _lista(l.alturas_amarre)]
+        [g.nombre, l.set_no, l.cable, l.nombre, l.fases,
+         l.diametro_conductor_mm, l.diam_aislador_mm, l.long_aislador_mm,
+         l.n_conductores, l.peso_conductor_kg_m, l.peso_aislador_kg, l.n_aisladores,
+         l.peso_ferreteria_kg, _lista(l.alturas_amarre)]
         for g in proyecto.grupos for l in g.lineas
     ])
 
@@ -231,55 +227,33 @@ def leer_respaldo(content: bytes) -> Proyecto:
         condicion=str(meta.get("condicion") or "creep"),
     )
 
-    for fila in _filas(libro[HOJA_CONDUCTORES], CAB_CONDUCTORES):
-        cable = round(_f(fila.get("cable_dan_m"), -1), 6)
-        if cable < 0:
-            continue
-        peso = fila.get("peso_dan_m")
-        proyecto.conductores[cable] = Conductor(
-            cable=cable,
-            nombre=str(fila.get("nombre") or ""),
-            diametro_mm=_f(fila.get("diametro_mm")),
-            peso_dan_m=None if peso in (None, "") else _f(peso),
-            n_conductores=_i(fila.get("n_conductores"), 1),
-        )
-
-    if HOJA_AISLADORES in libro.sheetnames:
-        for fila in _filas(libro[HOJA_AISLADORES], CAB_AISLADORES):
-            nombre = str(fila.get("nombre") or "").strip()
-            if not nombre:
-                continue
-            proyecto.aisladores[nombre] = Aislador(
-                nombre=nombre,
-                diametro_mm=_f(fila.get("diametro_mm")),
-                longitud_mm=_f(fila.get("longitud_mm")),
-                peso_kg=_f(fila.get("peso_kg")),
-                n_aisladores=_i(fila.get("n_aisladores")),
-                peso_ferreteria_kg=_f(fila.get("peso_ferreteria_kg")),
-            )
+    version = _i(meta.get("version"), 1)
+    conductores, aisladores = _catalogos_antiguos(libro, version)
 
     lineas_por_grupo: dict[str, list[Linea]] = {}
-    version = _i(meta.get("version"), 1)
-    hoja_lineas = libro[HOJA_LINEAS]
-    for fila in _filas(hoja_lineas, CAB_LINEAS if version >= 2 else CAB_LINEAS_V1):
-        nombre = str(fila.get("grupo") or "")
-        alturas = [_f(a) for a in _partir(fila.get("alturas_amarre"))]
-        if version >= 2:
-            aislador = str(fila.get("aislador") or "").strip()
-        else:
-            # Respaldo antiguo: el herraje iba en la línea. Se convierte en una
-            # entrada del catálogo, compartida por las líneas que coincidan.
-            aislador = _migrar_aislador(proyecto, fila)
-            conductor = proyecto.conductores.get(round(_f(fila.get("cable_dan_m")), 6))
-            if conductor is not None:
-                conductor.n_conductores = _i(fila.get("n_conductores"), 1)
-        lineas_por_grupo.setdefault(nombre, []).append(Linea(
+    cabecera = {1: CAB_LINEAS_V1, 2: CAB_LINEAS_V2}.get(version, CAB_LINEAS)
+    for fila in _filas(libro[HOJA_LINEAS], cabecera):
+        nombre_grupo = str(fila.get("grupo") or "")
+        cable = round(_f(fila.get("cable_dan_m")), 6)
+        linea = Linea(
             set_no=str(fila.get("set") or "").strip(),
-            cable=round(_f(fila.get("cable_dan_m")), 6),
+            cable=cable,
+            nombre=str(fila.get("nombre") or ""),
             fases=_i(fila.get("fases"), 1),
-            aislador=aislador,
-            alturas_amarre=alturas,
-        ))
+            alturas_amarre=[_f(a) for a in _partir(fila.get("alturas_amarre"))],
+        )
+        if version >= 3:
+            linea.diametro_conductor_mm = _f(fila.get("diametro_conductor_mm"))
+            linea.diam_aislador_mm = _f(fila.get("diam_aislador_mm"))
+            linea.long_aislador_mm = _f(fila.get("long_aislador_mm"))
+            linea.n_conductores = _i(fila.get("n_conductores"), 1)
+            linea.peso_conductor_kg_m = _f(fila.get("peso_conductor_kg_m"))
+            linea.peso_aislador_kg = _f(fila.get("peso_aislador_kg"))
+            linea.n_aisladores = _i(fila.get("n_aisladores"))
+            linea.peso_ferreteria_kg = _f(fila.get("peso_ferreteria_kg"))
+        else:
+            _volcar_catalogos(linea, fila, version, conductores, aisladores)
+        lineas_por_grupo.setdefault(nombre_grupo, []).append(linea)
 
     for fila in _filas(libro[HOJA_GRUPOS], CAB_GRUPOS):
         nombre = str(fila.get("grupo") or "Grupo")
@@ -304,23 +278,49 @@ def leer_respaldo(content: bytes) -> Proyecto:
     return proyecto
 
 
-def _migrar_aislador(proyecto: Proyecto, fila: dict) -> str:
-    """Convierte el herraje de un respaldo v1 en una entrada del catálogo."""
-    valores = (
-        _f(fila.get("diam_aislador_mm")), _f(fila.get("long_aislador_mm")),
-        _f(fila.get("peso_aislador_kg")), _i(fila.get("n_aisladores")),
-        _f(fila.get("peso_ferreteria_kg")),
+def _catalogos_antiguos(libro, version: int) -> tuple[dict, dict]:
+    """Lee los catálogos de los respaldos v1 y v2, para volcarlos en las líneas."""
+    if version >= 3:
+        return {}, {}
+    conductores = {}
+    if HOJA_CONDUCTORES in libro.sheetnames:
+        for fila in _filas(libro[HOJA_CONDUCTORES], CAB_CONDUCTORES):
+            cable = round(_f(fila.get("cable_dan_m"), -1), 6)
+            if cable >= 0:
+                conductores[cable] = fila
+    aisladores = {}
+    if HOJA_AISLADORES in libro.sheetnames:
+        for fila in _filas(libro[HOJA_AISLADORES], CAB_AISLADORES):
+            nombre = str(fila.get("nombre") or "").strip()
+            if nombre:
+                aisladores[nombre] = fila
+    return conductores, aisladores
+
+
+def _volcar_catalogos(linea: Linea, fila: dict, version: int, conductores: dict, aisladores: dict) -> None:
+    """Pasa a la línea lo que en v1/v2 vivía en los catálogos."""
+    conductor = conductores.get(linea.cable, {})
+    linea.nombre = linea.nombre or str(conductor.get("nombre") or "")
+    linea.diametro_conductor_mm = _f(conductor.get("diametro_mm"))
+    peso = conductor.get("peso_dan_m")
+    linea.peso_conductor_kg_m = (
+        _f(peso if peso not in (None, "") else linea.cable) * 1.019716
     )
-    if not any(valores):
-        return ""
-    for existente in proyecto.aisladores.values():
-        actual = (existente.diametro_mm, existente.longitud_mm, existente.peso_kg,
-                  existente.n_aisladores, existente.peso_ferreteria_kg)
-        if actual == valores:
-            return existente.nombre
-    nombre = f"Cadena {len(proyecto.aisladores) + 1}"
-    proyecto.aisladores[nombre] = Aislador(nombre, *valores)
-    return nombre
+    if version == 1:
+        linea.n_conductores = _i(fila.get("n_conductores"), 1)
+        linea.diam_aislador_mm = _f(fila.get("diam_aislador_mm"))
+        linea.long_aislador_mm = _f(fila.get("long_aislador_mm"))
+        linea.peso_aislador_kg = _f(fila.get("peso_aislador_kg"))
+        linea.n_aisladores = _i(fila.get("n_aisladores"))
+        linea.peso_ferreteria_kg = _f(fila.get("peso_ferreteria_kg"))
+        return
+    linea.n_conductores = _i(conductor.get("n_conductores"), 1)
+    cadena = aisladores.get(str(fila.get("aislador") or "").strip(), {})
+    linea.diam_aislador_mm = _f(cadena.get("diametro_mm"))
+    linea.long_aislador_mm = _f(cadena.get("longitud_mm"))
+    linea.peso_aislador_kg = _f(cadena.get("peso_kg"))
+    linea.n_aisladores = _i(cadena.get("n_aisladores"))
+    linea.peso_ferreteria_kg = _f(cadena.get("peso_ferreteria_kg"))
 
 
 def _tuplas(ws) -> list[tuple]:

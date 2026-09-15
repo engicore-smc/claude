@@ -118,27 +118,23 @@ def test_options_show_the_same_set_twice_when_it_carries_two_cables(client, job)
 def _proyecto():
     return {
         "nombre": "Proyecto web", "condicion": "creep",
-        "conductores": [
-            {"cable": 0.43, "nombre": "CTO1", "diametro_mm": 16.3068,
-             "peso_dan_m": 0.428477, "n_conductores": 1},
-            {"cable": 0.18, "nombre": "FO", "diametro_mm": 14.0, "peso_dan_m": 0.181, "n_conductores": 1},
-            {"cable": 0.40, "nombre": "G", "diametro_mm": 9.144, "peso_dan_m": 0.398413, "n_conductores": 1},
-        ],
-        "aisladores": [
-            {"nombre": "Cadena 15 kV", "diametro_mm": 115.0, "longitud_mm": 635.0,
-             "peso_kg": 3.4, "n_aisladores": 1, "peso_ferreteria_kg": 15.0},
-            {"nombre": "Solo ferretería", "peso_ferreteria_kg": 15.0},
-        ],
         "grupos": [{
             "nombre": "SMC-A_15", "estructuras": ["6", "7"], "casos": fx.CASOS_ELEGIDOS,
             "n_postes": 1, "fs": 1.1, "nc": 1, "espesor_hielo_mm": 0, "n_cadenas": 1,
             "n_aisladores": 1, "alpha_deg": 1, "ht_m": 15, "t_servicio_kg": 800, "pv_kg_m2": 80,
             "lineas": [
-                {"set_no": "1", "cable": 0.43, "fases": 3, "aislador": "Cadena 15 kV",
+                {"set_no": "1", "cable": 0.43, "nombre": "CTO1", "fases": 3,
+                 "diametro_conductor_mm": 16.3068, "diam_aislador_mm": 115, "long_aislador_mm": 635,
+                 "n_conductores": 1, "peso_conductor_kg_m": 1.019716 * 0.428477,
+                 "peso_aislador_kg": 3.4, "n_aisladores": 1, "peso_ferreteria_kg": 15,
                  "alturas_amarre": [0.16, 0.16, 0.16]},
-                {"set_no": "2", "cable": 0.18, "fases": 1, "aislador": "Solo ferretería",
+                {"set_no": "2", "cable": 0.18, "nombre": "FO", "fases": 1,
+                 "diametro_conductor_mm": 14.0, "n_conductores": 1,
+                 "peso_conductor_kg_m": 1.019716 * 0.181, "peso_ferreteria_kg": 15,
                  "alturas_amarre": [3.29]},
-                {"set_no": "3", "cable": 0.40, "fases": 1, "aislador": "Solo ferretería",
+                {"set_no": "3", "cable": 0.40, "nombre": "G", "fases": 1,
+                 "diametro_conductor_mm": 9.144, "n_conductores": 1,
+                 "peso_conductor_kg_m": 1.019716 * 0.398413, "peso_ferreteria_kg": 15,
                  "alturas_amarre": [1.74]},
             ],
         }],
@@ -208,7 +204,6 @@ def test_uploading_the_backup_with_the_reports_restores_the_project(client, job)
     assert proyecto is not None
     assert proyecto["nombre"] == "Proyecto web"
     assert [g["nombre"] for g in proyecto["grupos"]] == ["SMC-A_15"]
-    assert len(proyecto["conductores"]) == 3
 
     # Y los resultados vuelven a salir iguales.
     resultado = client.post("/api/mec/evaluar",
@@ -241,11 +236,13 @@ def test_upload_lists_the_pole_height_per_structure(job):
     assert por_clave["8"]["transversal_kg"] == 1200.0
 
 
-def test_the_restored_project_keeps_the_insulator_catalogue(client, job):
+def test_the_restored_project_keeps_every_line_field(client, job):
     blob = client.post("/api/mec/respaldo",
                        json={"job_id": job["job_id"], "proyecto": _proyecto()}).content
     proyecto = client.post("/api/mec/upload", files=_archivos(incluir_respaldo=blob)).json()["proyecto"]
-    por_nombre = {a["nombre"]: a for a in proyecto["aisladores"]}
-    assert por_nombre["Cadena 15 kV"]["longitud_mm"] == 635.0
-    assert proyecto["grupos"][0]["lineas"][0]["aislador"] == "Cadena 15 kV"
-    assert proyecto["conductores"][0]["n_conductores"] == 1
+    linea = proyecto["grupos"][0]["lineas"][0]
+    assert linea["nombre"] == "CTO1"
+    assert linea["diametro_conductor_mm"] == 16.3068
+    assert (linea["diam_aislador_mm"], linea["long_aislador_mm"]) == (115.0, 635.0)
+    assert linea["peso_conductor_kg_m"] == pytest.approx(0.436924852, abs=1e-9)
+    assert linea["alturas_amarre"] == [0.16, 0.16, 0.16]
