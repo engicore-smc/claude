@@ -1,0 +1,47 @@
+Valores por semilla (N=200 K=300 T=1500)
+
+ semilla  |dH|fin%  |dH|min%  paso_min   Hs_fin   Ht_fin  dens_fin
+      42     30.35     0.000      1378    0.722    0.499    0.0450
+     137     47.87     0.215         9    0.961    0.500    0.0425
+     271     38.25     0.086        11    0.581    0.358    0.0394
+     314     44.82     0.391        17    0.707    0.391    0.0345
+     999     46.13     0.028        17    0.865    0.466    0.0348
+      17     55.75     0.026         4    0.847    0.374    0.0317
+      88     45.37     0.605        96    0.958    0.524    0.0483
+     256     63.20     0.241        10    0.758    0.278    0.0324
+     512     45.98     0.092       102    0.938    0.505    0.0462
+    1024     43.68     0.028       194    0.618    0.346    0.0322
+       7     27.13     0.022        12    0.648    0.472    0.0418
+      23     44.53     0.051       501    0.679    0.377    0.0398
+      99     33.23     0.029         4    0.644    0.426    0.0345
+     404     67.41     0.070        11    0.466    0.150    0.0291
+     808     41.59     0.332         6    0.693    0.403    0.0351
+      11     59.66     0.000        70    0.450    0.181    0.0329
+      55     33.91     0.008        12    0.767    0.506    0.0413
+     333     45.45     0.025         4    0.877    0.477    0.0392
+     777     57.76     0.339       127    0.762    0.322    0.0345
+    2024     57.24     0.195         5    0.672    0.287    0.0337
+
+AGREGADO n=20
+  |dH| final      : 46.46% +- 4.70% (IC95)   [paper 44.2 +- 4.6]
+  |dH| min        : 0.14% +- 0.16%  [paper 0.32 +- 0.21]
+  paso del minimo : mediana 12  (13/20 seeds en los primeros 50 pasos)
+  r(Ht_fin,|dH|)  : -0.742  p=0.0002                    [paper -0.721 p=0.0003]
+  Hs>Ht final     : t-test pareado p=2.74e-12  [paper p<0.0001]
+  Het sube tras min: 16/20  p=0.0092  [paper 14/20 p=0.007]
+
+  Hs en el minimo : 2.324  [paper 3.729]
+  Ht en el minimo : 2.326  [paper 0.000]
+  Hs en el paso 1 : 3.708   Ht en el paso 1: 0.000
+  Hs final        : 0.731  [paper 0.767]
+  Ht final        : 0.392  [paper 0.428]
+
+  |dH| medio paso 4 : 1.74%  (primer paso con Ht definido; ya < umbral 5%)
+  pasos con |dH|<5% : media 28.1 de 1500 (1.87% del run)
+
+--- Diagnostico adicional: suelo algebraico de la correlacion E7 ---
+  |dH|_fin == (Hs-Ht)/Hs exactamente (desviacion max 0.0053)
+  r(Ht_fin, |dH|_fin)            = -0.742  p=0.0002
+  r(Hs_fin, |dH|_fin)            = -0.128  p=0.5917   <- sin poder predictivo
+  r con Hs permutado (2000 reps) = -0.529  <- suelo algebraico
+  std entre semillas: Hs_fin=0.143  Ht_fin=0.105 ; CV: Hs=0.196  Ht=0.269
