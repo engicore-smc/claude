@@ -35,17 +35,41 @@ simultáneamente en todas partes.
 Life deja de ver patrones nuevos en el paso 2 593 y los siguientes 97 000 pasos
 no aportan nada.
 
-## Conclusión
+## Conclusión — la dualidad NO se sostiene
 
-Los dos casos **no son dos rutas independientes**. Aciertan y fallan juntos, y
-lo que decide es la misma propiedad: **si la dinámica preserva información**.
+Una versión anterior de este README afirmaba que los dos casos «aciertan y fallan
+juntos», controlados ambos por la inyectividad. **Eso es falso.** Existen las
+cuatro combinaciones:
 
-- Life de 2º orden (inyectiva): Caso A ✅ (ida y vuelta de 500 pasos recupera el
-  inicial exactamente) y Caso B ✅ (512/512).
-- Life (no inyectiva): Caso A ❌ (75% Jardines del Edén) y Caso B ❌ (116/512).
+| sistema | Caso A (instantánea) | Caso B (ventana en el tiempo) |
+|---|---|---|
+| Life 2D | ❌ no inyectiva | ❌ 116/512 |
+| Life 2º orden (genérico) | ✅ reversible | ✅ 512/512 |
+| **Rule 30** | ❌ **no inyectiva** (pierde 0,04–0,15 bits/paso) | ✅ **512/512** |
+| **Life 2º orden desde un still-life** | ✅ **reversible** | ❌ **2/512** |
 
-El congelamiento de Life, su no-inyectividad y la no-cobertura de la ventana son
-**el mismo hecho visto tres veces**: el espacio de estados colapsa a 1 245
-atractores, y eso es exactamente lo que ve la ventana local.
+Los dos últimos son los contraejemplos. Rule 30 no es inyectiva —lo comprobé
+exhaustivamente sobre anillos de 10, 14 y 18 celdas— y aun así su ventana cubre
+todo el espacio de patrones. Y Life de 2º orden arrancado desde un still-life con
+`prev == cur` es perfectamente reversible y su ventana ve 2 patrones de 512.
+
+La razón por la que no pueden ser equivalentes es de tipo, no de grado:
+
+- El **Caso A** es una propiedad del **mapa** F: ¿es inyectivo? Eso es
+  exactamente la definición de reversibilidad.
+- El **Caso B** es una propiedad de la **órbita**: ¿la proyección de *esta*
+  trayectoria sobre una ventana cubre el espacio de patrones? Depende de la
+  condición inicial, no solo de la regla.
+
+Una propiedad del mapa y una propiedad de una órbita concreta no pueden ser la
+misma condición. Que coincidieran en los tres primeros sistemas que probé fue
+coincidencia de muestreo.
+
+## Lo que sí queda en pie
+
+Las mediciones individuales son correctas y reproducibles: Life destruye ~2
+bits/paso, el 75% de las configuraciones son Jardines del Edén, el espacio de
+estados colapsa a 1.245 atractores en 9 pasos, y una ventana local satura en el
+paso 2.593. Lo que no se sostiene es la síntesis en forma de dualidad.
 
 Correr: `python3 contraccion.py` (~2 min) · `python3 dualidad.py` (~3 min)
