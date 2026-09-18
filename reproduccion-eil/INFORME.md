@@ -14,13 +14,21 @@ la semilla 42 da arrays bit a bit idénticos). Por lo tanto los números del pap
 deberían reproducirse exactamente. **No lo hacen.** Además, tres de los seis
 experimentos declarados en la Sección 3.2 no tienen código en el script entregado.
 
-Lo más importante no es la discrepancia numérica, que es moderada, sino esto:
+Pero lo más importante no son las discrepancias numéricas, que son moderadas.
+Son dos problemas estructurales:
 
-> **El «mínimo transitorio de EIL» es un artefacto del arranque de la ventana
-> temporal, no un fenómeno dinámico.** `temporal_h()` devuelve `0.0` mientras el
-> buffer tiene menos de 4 grillas, lo que fuerza `|ΔH| = 100%` en los pasos 1–3.
-> En el paso 4 —el primer paso en que H(tiempo) está definido— `|ΔH|` cae a 1,74%
-> de media, ya por debajo del umbral EIL del 5%, en **un solo paso**.
+> **1 · «H(tiempo)» no es una entropía temporal.** `spatial_h()` y `temporal_h()`
+> son la misma operación: un histograma de 300 muestras, una por sonda, en el
+> mismo instante. Los dos lados de |ΔH| son promedios de ensemble; el script no
+> calcula ningún promedio temporal. Como la ergodicidad *es* la igualdad entre
+> promedio temporal y promedio de ensemble, el marco entero de la Sección 2 no se
+> corresponde con lo que el código mide. Detalle en §5-bis.
+
+> **2 · El «mínimo transitorio de EIL» es el arranque de la ventana.**
+> `temporal_h()` devuelve `0.0` mientras el buffer tiene menos de 4 grillas, lo
+> que fuerza `|ΔH| = 100%` en los pasos 1–3. En el paso 4 —el primer paso en que
+> H(tiempo) está definido— `|ΔH|` cae a 1,74% de media, ya por debajo del umbral
+> EIL del 5%, en **un solo paso**.
 
 La Fase 2 del paper («la densidad colapsa, H(espacio) cae hacia H(tiempo) que sube
 lentamente, convergen brevemente») no describe lo que hacen los datos.
@@ -136,6 +144,58 @@ frente a 32,8% de la simétrica, una reducción del **40,4%**, no del 20,8%.
 
 ---
 
+## 5-bis. El problema de fondo: la métrica nunca mide tiempo
+
+Esto es más grave que cualquier discrepancia numérica de las secciones
+anteriores, y se ve directamente en el código.
+
+`spatial_h()` y `temporal_h()` tienen **la misma estructura**: las dos hacen
+`for cx, cy in probes` y acumulan un histograma de 300 muestras, una por sonda.
+
+```python
+def spatial_h(g, probes):        # 300 muestras: bloque 2x2 de cada sonda
+    for cx, cy in probes: counts[key] += 1
+
+def temporal_h(hist4, probes):   # 300 muestras: palabra de 4 pasos de cada sonda
+    for cx, cy in probes: counts[key] += 1
+```
+
+Las dos son **promedios de ensemble sobre el mismo conjunto de sondas, en el
+mismo instante**. En ningún punto del script se calcula un promedio temporal.
+
+La ergodicidad es, por definición, la igualdad entre un promedio temporal y un
+promedio de ensemble. Aquí los dos lados del cociente son promedios de ensemble.
+Lo que |ΔH| compara no es espacio contra tiempo: es **dos libros de códigos
+distintos (bloques 2×2 contra palabras de 4 pasos) evaluados sobre la misma
+muestra de 300 sondas**. El marco de «ergodicidad», y con él la definición de
+EIL de la Sección 2, no se corresponde con lo que el código mide.
+
+### Qué pasa si se mide de verdad
+
+Calculé la entropía temporal real de un observador local —una sonda, la
+distribución de sus palabras de 4 pasos **a lo largo de 300 pasos**— en el
+régimen tardío:
+
+| | semilla 42 | semilla 137 | semilla 271 |
+|---|---|---|---|
+| H(espacio), ensemble | 0,658 | 0,866 | 0,558 |
+| H(tiempo) **del paper** (pool sobre sondas) | 0,431 | 0,406 | 0,315 |
+| H(tiempo) **real** (por observador, sobre t) | 0,330 | 0,162 | 0,128 |
+| mediana por observador | **0,000** | **0,000** | **0,000** |
+| sondas con H temporal exactamente 0 | 182/300 | 240/300 | 258/300 |
+
+El observador local **mediano tiene entropía temporal exactamente cero**: está
+sobre una still-life o una región muerta, y su ventana de 4 pasos nunca cambia.
+Entre el 61% y el 86% de las sondas están en ese caso.
+
+Es decir: el efecto real es mucho más extremo que el que reporta el paper, pero
+también mucho menos interesante, porque es la definición del estado asintótico
+del Juego de la Vida. El 0,43 bits que el paper atribuye a «las dinámicas
+periódicas locales» es en su mayor parte **variedad espacial entre sondas**, no
+variedad temporal: son sondas distintas congeladas en palabras distintas.
+
+---
+
 ## 6. Problemas metodológicos que sobreviven a la reproducción
 
 Estos no dependen de qué versión del código produjo los números.
@@ -213,14 +273,18 @@ estructural sube entre el paso 12 y el paso 1500.
 
 ## 8. Qué sobrevive y qué no
 
-**Sobrevive:**
-- H(espacio) > H(tiempo) al final del run, de forma robusta y con p muy pequeño
-  (2,7×10⁻¹²). Esto es real y reproducible.
-- La divergencia sostenida muy por encima del 5% en el estado final.
-- La observación cualitativa de que los observadores locales quedan atrapados en
-  estructuras de baja complejidad temporal.
+**Sobrevive como medición:**
+- La desigualdad entre los dos histogramas es real, robusta y reproducible
+  (p = 2,7×10⁻¹²). Pero hay que enunciarla por lo que es: *en el Juego de la Vida
+  tardío, la variedad de bloques 2×2 entre 300 sondas supera la variedad de sus
+  palabras de 4 pasos.* No es una comparación entre espacio y tiempo.
+- Medida de verdad (§5-bis), la versión por observador es más fuerte: el
+  observador local mediano tiene entropía temporal **exactamente cero**.
 
 **No sobrevive:**
+- **El marco completo de «ergodicidad informacional local»**: ninguna de las dos
+  magnitudes es un promedio temporal, así que nada en el paper testea
+  ergodicidad en ningún sentido.
 - **C2** (EIL transitoria robusta en 20/20): es el arranque de la ventana más un
   cruce de curvas garantizado. Sin contenido dinámico.
 - **C3** (reducción del 67% con sondas drift): sin código, no reproducible, y las
@@ -231,11 +295,21 @@ estructural sube entre el paso 12 y el paso 1500.
   valores del paso 1 y contradicen el 0,32% reportado.
 - **C6** tal como está fundamentada (comparación heterogeneidad mínimo↔final).
 
-**Recomendación mínima para que el paper sea defendible:** publicar el código de
-E4–E6, empezar todas las series en t=4, reportar |ΔH| absoluto además del
-relativo, y sustituir el «mínimo» por una magnitud que no esté garantizada por
-el teorema del valor intermedio (por ejemplo, el número de pasos con |ΔH| < 5%,
-contra un nulo de dinámica aleatorizada).
+**Lo que haría falta para que hubiera un resultado.** No es una lista de
+correcciones: el problema de §5-bis no se arregla con retoques.
+
+1. Calcular H(tiempo) como un **promedio temporal real** sobre la trayectoria de
+   cada sonda, y reportar su distribución entre sondas, no un pool.
+2. Comparar contra un **nulo**. Ahora mismo no hay ninguno. El candidato
+   evidente: la misma medición sobre una dinámica con la misma densidad y el
+   mismo espectro de estructuras pero sin correlación temporal.
+3. Elegir un sistema donde la respuesta **no se sepa de antemano**. Que el Juego
+   de la Vida relaje a still-lifes y blinkers es conocido; medir que las órbitas
+   locales tienen poca variedad en ese estado no añade información. Una regla con
+   transitorio largo o un CA de Clase IV con dinámica sostenida sería un banco de
+   pruebas donde la pregunta tiene contenido.
+4. Aparte, lo obvio: publicar el código de E4–E6, empezar las series en t=4, y
+   reportar |ΔH| absoluto además del relativo.
 
 ---
 
