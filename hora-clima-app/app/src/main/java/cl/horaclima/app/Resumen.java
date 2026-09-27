@@ -20,10 +20,23 @@ final class Resumen {
     Clima.Lectura[] lecturas;
     long climaHora;
 
-    /** Pesos por euro, o NaN si nunca se descargó. */
+    // Valores en pesos; NaN si nunca se descargaron.
+    double uf = Double.NaN;
+    double dolar = Double.NaN;
     double euro = Double.NaN;
-    String euroFuente = "";
+    String ufFecha = "";
+    String dolarFecha = "";
     String euroFecha = "";
+    String monedasFuente = "";
+
+    /** Indicador de IPC en %, NaN si nunca se calculó. */
+    double ipc = Double.NaN;
+    String ipcHasta = "";
+
+    /** Tasa hipotecaria promedio en % anual, NaN si no hay. */
+    double tasa = Double.NaN;
+    String tasaMes = "";
+    String tasaTitulo = "";
 
     static synchronized Resumen cargar(Context context) {
         Resumen r = new Resumen();
@@ -41,11 +54,20 @@ final class Resumen {
                 }
                 r.climaHora = o.optLong("climaHora");
             }
+            r.uf = o.optDouble("uf", Double.NaN);
+            r.dolar = o.optDouble("dolar", Double.NaN);
             r.euro = o.optDouble("euro", Double.NaN);
-            r.euroFuente = o.optString("euroFuente", "");
+            r.ufFecha = o.optString("ufFecha", "");
+            r.dolarFecha = o.optString("dolarFecha", "");
             r.euroFecha = o.optString("euroFecha", "");
+            r.monedasFuente = o.optString("monedasFuente", "");
+            r.ipc = o.optDouble("ipc", Double.NaN);
+            r.ipcHasta = o.optString("ipcHasta", "");
+            r.tasa = o.optDouble("tasa", Double.NaN);
+            r.tasaMes = o.optString("tasaMes", "");
+            r.tasaTitulo = o.optString("tasaTitulo", "");
         } catch (JSONException e) {
-            // Datos de una versión anterior o dañados: se empieza de cero.
+            // Datos dañados: se empieza de cero.
             return new Resumen();
         }
         return r;
@@ -61,12 +83,24 @@ final class Resumen {
                 }
                 o.put("clima", lista).put("climaHora", climaHora);
             }
-            if (!Double.isNaN(euro)) {
-                o.put("euro", euro).put("euroFuente", euroFuente).put("euroFecha", euroFecha);
-            }
+            poner(o, "uf", uf);
+            poner(o, "dolar", dolar);
+            poner(o, "euro", euro);
+            poner(o, "ipc", ipc);
+            poner(o, "tasa", tasa);
+            o.put("ufFecha", ufFecha).put("dolarFecha", dolarFecha).put("euroFecha", euroFecha)
+                    .put("monedasFuente", monedasFuente).put("ipcHasta", ipcHasta)
+                    .put("tasaMes", tasaMes).put("tasaTitulo", tasaTitulo);
             prefs(context).edit().putString(CLAVE, o.toString()).apply();
         } catch (JSONException e) {
-            // No debería ocurrir con números finitos; si ocurre, se conserva lo anterior.
+            // No debería ocurrir; si ocurre, se conserva lo anterior.
+        }
+    }
+
+    /** JSON no admite NaN: los valores que faltan simplemente no se guardan. */
+    private static void poner(JSONObject o, String clave, double valor) throws JSONException {
+        if (!Double.isNaN(valor)) {
+            o.put(clave, valor);
         }
     }
 

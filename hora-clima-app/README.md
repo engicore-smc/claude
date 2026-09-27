@@ -10,17 +10,32 @@ App para Android que muestra:
   del cielo, la sensación térmica y la máxima y mínima del día. Los datos vienen
   de [Open-Meteo](https://open-meteo.com) (gratis, sin clave) y se actualizan al
   abrir la app, con el botón **Actualizar** y cada 15 minutos.
-- El **precio del euro en pesos chilenos**: el valor oficial del Banco Central de
-  Chile (vía [mindicador.cl](https://mindicador.cl)) y, si no responde, el de
-  [open.er-api.com](https://open.er-api.com). Ambos gratis y sin clave.
+- **Indicadores de Chile**, desde [mindicador.cl](https://mindicador.cl)
+  (datos oficiales del Banco Central y del INE):
+  - **UF** del día.
+  - **Dólar observado** y **euro** en pesos. Si mindicador.cl no responde,
+    se usan los de [open.er-api.com](https://open.er-api.com).
+  - **Indicador IPC** = (IPC ago 2026 − IPC último publicado) / IPC ago 2026.
+    El INE publica variaciones mensuales, así que el cociente se obtiene
+    encadenándolas: IPC último / IPC ago = Π(1 + variación de cada mes
+    posterior). Es negativo cuando hubo inflación. El IPC de cada mes sale
+    hacia el día 8 del mes siguiente.
+  - **Tasa hipotecaria**: promedio de los créditos para vivienda en UF de los
+    bancos en Chile, mensual, desde la API del Banco Central. Necesita una
+    cuenta gratuita en si3.bcentral.cl (*Web Services*); usuario y contraseña
+    se escriben tocando la fila de la tasa y se guardan solo en el teléfono.
+    La app busca sola la serie y muestra su nombre en ese diálogo; si no es la
+    correcta, se puede escribir el código de serie a mano.
 
 Los últimos datos quedan guardados en el teléfono, así que al abrir la app o
 sin conexión se ve lo último que se descargó.
 
 ## Widget
 
-Resumen para la pantalla de inicio (4×2, redimensionable): hora y minuto de
-Chile y España, temperatura e icono del cielo de las tres ciudades, y el euro.
+Resumen para la pantalla de inicio (4×2, redimensionable) en tres filas:
+hora y minuto de Chile y España; temperatura e icono del cielo de las tres
+ciudades; UF, dólar, euro (en pesos, sin decimales), indicador IPC y tasa
+hipotecaria.
 Para añadirlo: mantén pulsado un hueco de la pantalla de inicio → *Widgets* →
 *Hora y Clima*.
 

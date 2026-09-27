@@ -10,11 +10,11 @@ import android.widget.RemoteViews;
 
 import java.text.DateFormat;
 import java.util.Date;
-import java.util.Locale;
 
 /**
  * Widget de la pantalla de inicio: hora y minuto de Chile y España (los
- * TextClock avanzan solos) y un resumen de temperaturas y euro.
+ * TextClock avanzan solos), temperaturas e indicadores (UF, dólar, euro,
+ * IPC y tasa hipotecaria).
  * Android lo despierta cada 30 minutos para descargar datos nuevos; al
  * tocarlo se abre la app, que también lo actualiza.
  */
@@ -57,11 +57,13 @@ public class WidgetResumen extends AppWidgetProvider {
             vista.setTextViewText(TEMPERATURAS[i], texto);
         }
 
-        vista.setTextViewText(R.id.w_euro, Double.isNaN(r.euro)
-                ? "1 € = —"
-                : "1 € = $" + pesos(r.euro, 0));
+        vista.setTextViewText(R.id.w_uf, pesos(r.uf));
+        vista.setTextViewText(R.id.w_dolar, pesos(r.dolar));
+        vista.setTextViewText(R.id.w_euro, pesos(r.euro));
+        vista.setTextViewText(R.id.w_ipc, Double.isNaN(r.ipc) ? "—" : Formato.porcentajeConSigno(r.ipc, 1));
+        vista.setTextViewText(R.id.w_tasa, Double.isNaN(r.tasa) ? "—" : Formato.numero(r.tasa, 2) + "%");
         vista.setTextViewText(R.id.w_actualizado, r.climaHora > 0
-                ? "act. " + DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(r.climaHora))
+                ? DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(r.climaHora))
                 : "");
 
         Intent abrir = new Intent(context, MainActivity.class)
@@ -72,15 +74,8 @@ public class WidgetResumen extends AppWidgetProvider {
         manager.updateAppWidget(ids, vista);
     }
 
-    /** Pesos chilenos con punto de miles: 1.085 o 1.085,32. */
-    static String pesos(double valor, int decimales) {
-        // A mano y no con el Locale: los datos del español omiten el punto en
-        // números de cuatro cifras ("1085"), y aquí se quiere siempre "1.085".
-        String ingles = String.format(Locale.ROOT, "%,." + decimales + "f", valor);
-        StringBuilder chileno = new StringBuilder(ingles.length());
-        for (char c : ingles.toCharArray()) {
-            chileno.append(c == ',' ? '.' : c == '.' ? ',' : c);
-        }
-        return chileno.toString();
+    /** Pesos sin decimales, para que quepan: "1.085". */
+    private static String pesos(double valor) {
+        return Double.isNaN(valor) ? "—" : Formato.numero(valor, 0);
     }
 }

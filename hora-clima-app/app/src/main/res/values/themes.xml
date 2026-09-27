@@ -56,22 +56,11 @@
     </style>
 
     <!-- Widget -->
-    <style name="WPais">
-        <item name="android:layout_width">wrap_content</item>
+    <style name="WFila">
+        <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">@color/texto_suave</item>
-        <item name="android:textSize">12sp</item>
-    </style>
-
-    <style name="WReloj">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">@color/texto</item>
-        <item name="android:textSize">32sp</item>
-        <item name="android:fontFamily">sans-serif-light</item>
-        <item name="android:format24Hour">HH:mm</item>
-        <item name="android:format12Hour">HH:mm</item>
-        <item name="android:includeFontPadding">false</item>
+        <item name="android:layout_marginTop">6dp</item>
+        <item name="android:orientation">horizontal</item>
     </style>
 
     <style name="WColumna">
@@ -81,21 +70,37 @@
         <item name="android:orientation">vertical</item>
     </style>
 
-    <style name="WNombre">
+    <style name="WEtiqueta">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">@color/texto_suave</item>
-        <item name="android:textSize">11sp</item>
+        <item name="android:textSize">10sp</item>
         <item name="android:maxLines">1</item>
         <item name="android:ellipsize">end</item>
     </style>
 
-    <style name="WTemp">
+    <style name="WReloj">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">@color/texto</item>
-        <item name="android:textSize">16sp</item>
+        <item name="android:textSize">26sp</item>
+        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:format24Hour">HH:mm</item>
+        <item name="android:format12Hour">HH:mm</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="WValor">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/texto</item>
+        <item name="android:textSize">14sp</item>
         <item name="android:maxLines">1</item>
         <item name="android:text">—</item>
+    </style>
+
+    <style name="WIndicador" parent="WValor">
+        <item name="android:textSize">12sp</item>
+        <item name="android:textColor">@color/acento</item>
     </style>
 </resources>

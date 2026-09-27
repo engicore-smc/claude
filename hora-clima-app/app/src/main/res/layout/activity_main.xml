@@ -79,26 +79,13 @@
 
         <TextView
             style="@style/Seccion"
-            android:text="@string/seccion_euro" />
+            android:text="@string/seccion_indicadores" />
 
-        <LinearLayout style="@style/Tarjeta">
-            <TextView
-                android:id="@+id/euro_valor"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-light"
-                android:fontFeatureSettings="tnum"
-                android:text="—"
-                android:textColor="@color/texto"
-                android:textSize="36sp" />
-            <TextView
-                android:id="@+id/euro_detalle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/euro_detalle"
-                android:textColor="@color/texto_suave"
-                android:textSize="13sp" />
-        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/indicadores"
+            style="@style/Tarjeta"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp" />
 
         <TextView
             android:id="@+id/estado"
