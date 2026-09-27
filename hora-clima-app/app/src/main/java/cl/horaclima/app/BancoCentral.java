@@ -24,8 +24,28 @@ final class BancoCentral {
     private static final String PREFS = "bcentral";
     private static final String API = "https://si3.bcentral.cl/SieteRestWS/SieteRestWS.ashx";
 
-    /** Tasa de interés promedio de colocaciones para vivienda a más de 3 años, en UF, mensual. */
+    /**
+     * Tasa de interés promedio de colocaciones para vivienda a más de 3 años,
+     * en UF. Se prueban en orden; si ninguna existe en la API, se busca en el
+     * catálogo y se recuerda la que se encuentre.
+     */
     static final String SERIE_POR_DEFECTO = "F022.VIV.TIP.MA03.UF.Z.M";
+    private static final String[] SERIES_CANDIDATAS = {SERIE_POR_DEFECTO, "F022.VIV.TIP.MA03.UF.Z.D"};
+
+    /** La API respondió con un error propio (Codigo distinto de 0). */
+    static final class ErrorApi extends IOException {
+        final int codigo;
+
+        ErrorApi(int codigo, String descripcion) {
+            super("Banco Central: " + descripcion);
+            this.codigo = codigo;
+        }
+
+        /** Código de serie inexistente. */
+        boolean serieInvalida() {
+            return codigo == -1 && getMessage().toLowerCase(Locale.ROOT).contains("series");
+        }
+    }
 
     static final class Tasa {
         /** % anual. */
@@ -77,8 +97,41 @@ final class BancoCentral {
         if (!c.configurada()) {
             return null;
         }
-        String codigo = c.serie.isEmpty() ? SERIE_POR_DEFECTO : c.serie;
+        if (!c.serie.isEmpty()) {
+            return leerSerie(context, c, c.serie, timeoutMs);
+        }
 
+        // Sin código escrito a mano: la serie que ya funcionó, las candidatas y,
+        // si ninguna existe, la que se encuentre en el catálogo.
+        String detectada = prefs(context).getString("serieDetectada", "");
+        if (!detectada.isEmpty()) {
+            try {
+                return leerSerie(context, c, detectada, timeoutMs);
+            } catch (ErrorApi e) {
+                if (!e.serieInvalida()) {
+                    throw e;
+                }
+            }
+        }
+        for (String candidata : SERIES_CANDIDATAS) {
+            try {
+                Tasa t = leerSerie(context, c, candidata, timeoutMs);
+                prefs(context).edit().putString("serieDetectada", candidata).apply();
+                return t;
+            } catch (ErrorApi e) {
+                if (!e.serieInvalida()) {
+                    throw e;
+                }
+            }
+        }
+        String encontrada = buscarSerie(c, timeoutMs);
+        Tasa t = leerSerie(context, c, encontrada, timeoutMs);
+        prefs(context).edit().putString("serieDetectada", encontrada).apply();
+        return t;
+    }
+
+    private static Tasa leerSerie(Context context, Cuenta c, String codigo, int timeoutMs)
+            throws IOException, JSONException {
         Calendar hasta = Calendar.getInstance();
         Calendar desde = (Calendar) hasta.clone();
         desde.add(Calendar.MONTH, -12);
@@ -91,6 +144,7 @@ final class BancoCentral {
 
         JSONObject serie = cuerpo.getJSONObject("Series");
         JSONArray obs = serie.getJSONArray("Obs");
+        boolean mensual = codigo.endsWith(".M");
         for (int i = obs.length() - 1; i >= 0; i--) {
             JSONObject o = obs.getJSONObject(i);
             double valor;
@@ -106,8 +160,10 @@ final class BancoCentral {
             t.valor = valor;
             String fecha = o.optString("indexDateString");     // "01-07-2026"
             String[] p = fecha.split("-");
-            t.mes = p.length == 3 ? Formato.mes(Integer.parseInt(p[1]), Integer.parseInt(p[2])) : fecha;
-            t.titulo = serie.optString("descripEsp", "");
+            // Serie mensual: "jul 2026"; diaria o semanal: la fecha completa.
+            t.mes = mensual && p.length == 3
+                    ? Formato.mes(Integer.parseInt(p[1]), Integer.parseInt(p[2])) : fecha;
+            t.titulo = serie.optString("descripEsp", "") + " (" + codigo + ")";
             if (!t.titulo.equals(c.titulo)) {
                 prefs(context).edit().putString("titulo", t.titulo).apply();
             }
@@ -116,13 +172,53 @@ final class BancoCentral {
         throw new IOException("la serie " + codigo + " no tiene datos recientes");
     }
 
+    /**
+     * Busca en el catálogo (mensual y luego diario) la tasa de colocaciones
+     * para vivienda en UF. Se prefiere la de más de 3 años y la promedio.
+     */
+    private static String buscarSerie(Cuenta c, int timeoutMs) throws IOException, JSONException {
+        String mejor = null;
+        int mejorPuntos = 0;
+        for (String frecuencia : new String[]{"MONTHLY", "DAILY"}) {
+            JSONArray series = consultar(c, "SearchSeries", "&frequency=" + frecuencia, timeoutMs)
+                    .getJSONArray("SeriesInfos");
+            for (int i = 0; i < series.length(); i++) {
+                JSONObject info = series.getJSONObject(i);
+                String id = info.optString("seriesId", "");
+                String t = info.optString("spanishTitle", "").toLowerCase(Locale.ROOT);
+                if (!t.contains("vivienda") || !(t.contains("tasa") || t.contains("interés"))) {
+                    continue;
+                }
+                int puntos = 10;
+                if (t.contains("uf") || t.contains("reajustable")) puntos += 5;
+                if (t.contains("3 años") || id.contains("MA03")) puntos += 3;
+                if (t.contains("promedio") || id.contains(".TIP.")) puntos += 2;
+                if (frecuencia.equals("MONTHLY")) puntos += 1;
+                if (t.contains("monto") || t.contains("número") || t.contains("stock")
+                        || t.contains("spread") || t.contains("diferencial")) puntos -= 20;
+                if (puntos > mejorPuntos) {
+                    mejorPuntos = puntos;
+                    mejor = id;
+                }
+            }
+            if (mejorPuntos >= 18) {
+                break;      // ya hay una buena candidata mensual
+            }
+        }
+        if (mejor == null || mejor.isEmpty()) {
+            throw new IOException("no se encontró la serie de tasa hipotecaria en el catálogo");
+        }
+        return mejor;
+    }
+
     private static JSONObject consultar(Cuenta c, String funcion, String extra, int timeoutMs)
             throws IOException, JSONException {
         String url = API + "?token=" + codificar(c.token) + "&function=" + funcion + extra;
         JSONObject cuerpo = new JSONObject(Red.leer(url, timeoutMs));
-        if (cuerpo.optInt("Codigo", -1) != 0) {
-            // Por ejemplo, token inválido o vencido.
-            throw new IOException("Banco Central: " + cuerpo.optString("Descripcion", "error"));
+        int codigo = cuerpo.optInt("Codigo", -99);
+        if (codigo != 0) {
+            // Por ejemplo, token inválido o vencido, o serie inexistente.
+            throw new ErrorApi(codigo, cuerpo.optString("Descripcion", "error"));
         }
         return cuerpo;
     }
