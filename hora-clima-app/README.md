@@ -16,10 +16,12 @@ App para Android que muestra:
   - **Dólar observado** y **euro** en pesos. Si mindicador.cl no responde,
     se usan los de [open.er-api.com](https://open.er-api.com).
   - **Indicador IPC** = (IPC jul 2026 − IPC último publicado) / IPC jul 2026.
-    El INE publica variaciones mensuales, así que el cociente se obtiene
-    encadenándolas: IPC último / IPC jul = Π(1 + variación de cada mes
-    posterior). Es negativo cuando hubo inflación. El IPC de cada mes sale
-    hacia el día 8 del mes siguiente.
+    Es negativo cuando hubo inflación. mindicador.cl no trae el IPC de 2026, así
+    que el cociente se deduce de la UF, que por ley sube del día 10 del mes t al
+    9 del mes t+1 exactamente el IPC del mes t−1:
+    UF(9 de t+1) / UF(9 de t) = 1 + IPC(t−1). Los meses completos se encadenan
+    con la UF de los días 9, y el mes en curso se obtiene de la UF de hoy:
+    1 + IPC = (UF(hoy) / UF(día 9))^(días del período / días transcurridos).
   - **Tasa hipotecaria**: promedio de los créditos para vivienda en UF de los
     bancos en Chile, mensual, desde la API del Banco Central. Necesita una
     cuenta gratuita en si3.bcentral.cl (*Web Services*); usuario y contraseña

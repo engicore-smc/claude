@@ -190,7 +190,7 @@ public class MainActivity extends Activity {
                     "Aún no se publica un IPC posterior a " + base);
         } else {
             poner(filaIpc, Formato.porcentajeConSigno(r.ipc, 2),
-                    "(IPC " + base + " − IPC " + r.ipcHasta + ") / IPC " + base);
+                    "(IPC " + base + " − IPC " + r.ipcHasta + ") / IPC " + base + " · calculado con la UF");
         }
 
         if (!BancoCentral.cuenta(this).configurada()) {

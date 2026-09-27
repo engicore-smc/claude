@@ -5,12 +5,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
-import java.util.TimeZone;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 
-/** UF, dólar, euro e IPC desde mindicador.cl (datos del Banco Central y del INE). */
+/** UF, dólar y euro desde mindicador.cl (datos del Banco Central); el IPC se deduce de la UF. */
 final class Indicadores {
 
     /** Mes base del indicador de IPC. */
@@ -94,47 +93,63 @@ final class Indicadores {
     }
 
     /**
-     * El INE publica la variación mensual del IPC, no el índice. Se encadenan
-     * las variaciones posteriores al mes base: IPC último / IPC base = Π(1 + v).
+     * El cociente IPC último / IPC base se obtiene de la UF, que por ley sube
+     * cada día según el IPC: del día 10 del mes t al 9 del mes t+1 crece en
+     * forma geométrica exactamente el IPC del mes t−1. Así:
+     * <ul>
+     *   <li>UF(9 del mes t+1) / UF(9 del mes t) = 1 + IPC(t−1), y los períodos
+     *       completos se encadenan solos: IPC(m) / IPC(base) = UF(9 de m+2) / UF(9 de base+2).</li>
+     *   <li>En el período en curso, que empieza el día 9 (S) y dura D días, con
+     *       k días transcurridos hasta hoy (T): 1 + IPC = (UF(T) / UF(S))^(D/k).</li>
+     * </ul>
+     * No depende de que alguien cargue la serie del IPC: basta la UF, que el
+     * Banco Central publica a diario.
      */
     static Ipc ipc(int timeoutMs) throws IOException, JSONException {
-        int anioActual = Calendar.getInstance(TimeZone.getTimeZone("America/Santiago")).get(Calendar.YEAR);
-        List<int[]> meses = new ArrayList<>();       // {año, mes}
-        List<Double> variaciones = new ArrayList<>();
-        for (int anio = IPC_BASE_ANIO; anio <= anioActual; anio++) {
-            JSONArray serie = new JSONObject(Red.leer("https://mindicador.cl/api/ipc/" + anio, timeoutMs))
-                    .getJSONArray("serie");
-            for (int i = 0; i < serie.length(); i++) {
-                JSONObject punto = serie.getJSONObject(i);
-                String fecha = punto.getString("fecha");        // "2026-09-01T03:00:00.000Z"
-                int a = Integer.parseInt(fecha.substring(0, 4));
-                int m = Integer.parseInt(fecha.substring(5, 7));
-                if (a * 12 + m > IPC_BASE_ANIO * 12 + IPC_BASE_MES) {
-                    meses.add(new int[]{a, m});
-                    variaciones.add(punto.getDouble("valor"));
-                }
-            }
-        }
+        JSONObject hoy = new JSONObject(Red.leer("https://mindicador.cl/api/uf", timeoutMs))
+                .getJSONArray("serie").getJSONObject(0);
+        LocalDate t = LocalDate.parse(hoy.getString("fecha").substring(0, 10));
+        double ufT = hoy.getDouble("valor");
 
-        double razon = 1;
-        int ultimo = IPC_BASE_ANIO * 12 + IPC_BASE_MES;
-        List<Integer> vistos = new ArrayList<>();
-        for (int i = 0; i < meses.size(); i++) {
-            int clave = meses.get(i)[0] * 12 + meses.get(i)[1];
-            if (vistos.contains(clave)) {
-                continue;   // por si la API repite un mes
-            }
-            vistos.add(clave);
-            razon *= 1 + variaciones.get(i) / 100;
-            ultimo = Math.max(ultimo, clave);
-        }
+        // Inicio del período en curso: el día 9 más reciente estrictamente anterior a T.
+        LocalDate s = t.getDayOfMonth() >= 10 ? t.withDayOfMonth(9) : t.minusMonths(1).withDayOfMonth(9);
+        // El período que empieza el 9 del mes m aplica el IPC del mes m−1.
+        YearMonth mesIpc = YearMonth.from(s).minusMonths(1);
+        YearMonth base = YearMonth.of(IPC_BASE_ANIO, IPC_BASE_MES);
+        // Primer día 9 cuyo período aplica un IPC posterior al base.
+        LocalDate ancla = base.plusMonths(2).atDay(9);
 
         Ipc ipc = new Ipc();
+        if (!mesIpc.isAfter(base)) {
+            ipc.indicador = 0;
+            ipc.hasta = Formato.mes(base.getMonthValue(), base.getYear());
+            return ipc;
+        }
+
+        double ufS = ufDelDia(s, timeoutMs);
+        double completos = s.equals(ancla) ? 1 : ufS / ufDelDia(ancla, timeoutMs);
+        long d = ChronoUnit.DAYS.between(s, s.plusMonths(1));
+        long k = ChronoUnit.DAYS.between(s, t);
+        double enCurso = Math.pow(ufT / ufS, (double) d / k);
+        double razon = completos * enCurso;
+        if (!(razon > 0.5 && razon < 2)) {
+            throw new IOException("cálculo del IPC fuera de rango: " + razon);
+        }
+
         ipc.indicador = (1 - razon) * 100;
-        int mesUltimo = (ultimo - 1) % 12 + 1;
-        int anioUltimo = (ultimo - mesUltimo) / 12;
-        ipc.hasta = Formato.mes(mesUltimo, anioUltimo);
+        ipc.hasta = Formato.mes(mesIpc.getMonthValue(), mesIpc.getYear());
         return ipc;
+    }
+
+    private static double ufDelDia(LocalDate dia, int timeoutMs) throws IOException, JSONException {
+        String fecha = String.format(java.util.Locale.ROOT, "%02d-%02d-%04d",
+                dia.getDayOfMonth(), dia.getMonthValue(), dia.getYear());
+        JSONArray serie = new JSONObject(Red.leer("https://mindicador.cl/api/uf/" + fecha, timeoutMs))
+                .getJSONArray("serie");
+        if (serie.length() == 0) {
+            throw new IOException("sin UF para el " + fecha);
+        }
+        return serie.getJSONObject(0).getDouble("valor");
     }
 
     private static double enRango(double valor, double min, double max) {
