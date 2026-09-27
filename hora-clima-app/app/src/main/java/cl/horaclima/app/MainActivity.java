@@ -244,8 +244,8 @@ public class MainActivity extends Activity {
 
         TextView ayuda = new TextView(this);
         ayuda.setText("Crea una cuenta gratuita en la API del Banco Central "
-                + "(si3.bcentral.cl → Web Services) y escribe aquí sus datos. "
-                + "Solo se guardan en este teléfono."
+                + "(si3.bcentral.cl → Web Services), actívala desde el correo y escribe "
+                + "aquí el usuario y la contraseña de la API. Solo se guardan en este teléfono."
                 + (c.titulo.isEmpty() ? "" : "\n\nSerie actual: " + c.titulo));
         ayuda.setTextColor(getColor(R.color.texto_suave));
         form.addView(ayuda);
@@ -254,7 +254,7 @@ public class MainActivity extends Activity {
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         EditText clave = campo(form, "Contraseña", c.clave,
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        EditText serie = campo(form, "Código de serie (vacío = buscar solo)", c.serie,
+        EditText serie = campo(form, "Código de serie (vacío = " + BancoCentral.SERIE_POR_DEFECTO + ")", c.serie,
                 InputType.TYPE_CLASS_TEXT);
 
         new AlertDialog.Builder(this)

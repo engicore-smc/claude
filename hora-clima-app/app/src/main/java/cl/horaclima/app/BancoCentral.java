@@ -23,6 +23,9 @@ final class BancoCentral {
     private static final String PREFS = "bcentral";
     private static final String API = "https://si3.bcentral.cl/SieteRestWS/SieteRestWS.ashx";
 
+    /** Tasa de interés promedio de colocaciones para vivienda a más de 3 años, en UF, mensual. */
+    static final String SERIE_POR_DEFECTO = "F022.VIV.TIP.MA03.UF.Z.M";
+
     static final class Tasa {
         /** % anual. */
         double valor;
@@ -35,7 +38,7 @@ final class BancoCentral {
     static final class Cuenta {
         String usuario = "";
         String clave = "";
-        /** Código de la serie; vacío = buscarla automáticamente. */
+        /** Código de la serie; vacío = {@link #SERIE_POR_DEFECTO}. */
         String serie = "";
         String titulo = "";
 
@@ -74,16 +77,14 @@ final class BancoCentral {
         if (!c.configurada()) {
             return null;
         }
-        if (c.serie.isEmpty()) {
-            buscarSerie(context, c, timeoutMs);
-        }
+        String codigo = c.serie.isEmpty() ? SERIE_POR_DEFECTO : c.serie;
 
         Calendar hasta = Calendar.getInstance();
         Calendar desde = (Calendar) hasta.clone();
         desde.add(Calendar.MONTH, -12);
         SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
         JSONObject cuerpo = consultar(c, "GetSeries",
-                "&timeseries=" + codificar(c.serie)
+                "&timeseries=" + codificar(codigo)
                         + "&firstdate=" + iso.format(desde.getTime())
                         + "&lastdate=" + iso.format(hasta.getTime()),
                 timeoutMs);
@@ -106,49 +107,13 @@ final class BancoCentral {
             String fecha = o.optString("indexDateString");     // "01-07-2026"
             String[] p = fecha.split("-");
             t.mes = p.length == 3 ? Formato.mes(Integer.parseInt(p[1]), Integer.parseInt(p[2])) : fecha;
-            String titulo = serie.optString("descripEsp", "");
-            t.titulo = titulo.isEmpty() ? c.titulo : titulo;
+            t.titulo = serie.optString("descripEsp", "");
+            if (!t.titulo.equals(c.titulo)) {
+                prefs(context).edit().putString("titulo", t.titulo).apply();
+            }
             return t;
         }
-        throw new IOException("la serie " + c.serie + " no tiene datos recientes");
-    }
-
-    /**
-     * Busca entre las series mensuales la de tasa de interés de créditos para
-     * vivienda en UF, y la recuerda. Se puede cambiar a mano en los ajustes.
-     */
-    private static void buscarSerie(Context context, Cuenta c, int timeoutMs)
-            throws IOException, JSONException {
-        JSONObject cuerpo = consultar(c, "SearchSeries", "&frequency=MONTHLY", timeoutMs);
-        JSONArray series = cuerpo.getJSONArray("SeriesInfos");
-        String mejor = null;
-        String mejorTitulo = null;
-        int mejorPuntos = 0;
-        for (int i = 0; i < series.length(); i++) {
-            JSONObject s = series.getJSONObject(i);
-            String titulo = s.optString("spanishTitle", "");
-            String t = titulo.toLowerCase(Locale.ROOT);
-            if (!t.contains("vivienda") || !(t.contains("tasa") || t.contains("interés"))) {
-                continue;
-            }
-            int puntos = 5;
-            if (t.contains("uf") || t.contains("reajustable")) puntos += 3;
-            if (t.contains("promedio")) puntos += 2;
-            if (t.contains("colocaciones") || t.contains("créditos") || t.contains("hipotecari")) puntos += 1;
-            if (t.contains("monto") || t.contains("número") || t.contains("stock")
-                    || t.contains("spread") || t.contains("diferencial")) puntos -= 10;
-            if (puntos > mejorPuntos) {
-                mejorPuntos = puntos;
-                mejor = s.optString("seriesId");
-                mejorTitulo = titulo;
-            }
-        }
-        if (mejor == null || mejor.isEmpty()) {
-            throw new IOException("no se encontró la serie de tasa hipotecaria");
-        }
-        c.serie = mejor;
-        c.titulo = mejorTitulo;
-        prefs(context).edit().putString("serie", mejor).putString("titulo", mejorTitulo).apply();
+        throw new IOException("la serie " + codigo + " no tiene datos recientes");
     }
 
     private static JSONObject consultar(Cuenta c, String funcion, String extra, int timeoutMs)

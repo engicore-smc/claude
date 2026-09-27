@@ -24,8 +24,9 @@ App para Android que muestra:
     bancos en Chile, mensual, desde la API del Banco Central. Necesita una
     cuenta gratuita en si3.bcentral.cl (*Web Services*); usuario y contraseña
     se escriben tocando la fila de la tasa y se guardan solo en el teléfono.
-    La app busca sola la serie y muestra su nombre en ese diálogo; si no es la
-    correcta, se puede escribir el código de serie a mano.
+    Por defecto usa la serie `F022.VIV.TIP.MA03.UF.Z.M` (tasa promedio de
+    colocaciones para vivienda a más de 3 años, en UF, mensual); en ese mismo
+    diálogo se puede escribir otro código de serie.
 
 Los últimos datos quedan guardados en el teléfono, así que al abrir la app o
 sin conexión se ve lo último que se descargó.
