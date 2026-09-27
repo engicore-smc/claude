@@ -200,10 +200,10 @@ public class MainActivity extends Activity {
         }
 
         if (!BancoCentral.cuenta(this).configurada()) {
-            poner(filaTasa, "—", "Toca para configurar tu cuenta del Banco Central");
+            poner(filaTasa, "—", "Toca para pegar tu token del Banco Central");
         } else if (!errorTasa.isEmpty()) {
             poner(filaTasa, Double.isNaN(r.tasa) ? "—" : Formato.numero(r.tasa, 2) + " %",
-                    errorTasa + " · toca para revisar la cuenta");
+                    errorTasa + " · toca para revisar el token");
         } else {
             poner(filaTasa, Double.isNaN(r.tasa) ? "—" : Formato.numero(r.tasa, 2) + " %",
                     unir("Promedio bancos en Chile, UF", r.tasaMes));
@@ -240,7 +240,7 @@ public class MainActivity extends Activity {
         return a.isEmpty() ? b : b.isEmpty() ? a : a + " · " + b;
     }
 
-    /** Usuario y contraseña de la API del Banco Central; se guardan solo en el teléfono. */
+    /** Token de la API del Banco Central; se guarda solo en el teléfono. */
     private void configurarBancoCentral() {
         BancoCentral.Cuenta c = BancoCentral.cuenta(this);
         int margen = Math.round(20 * getResources().getDisplayMetrics().density);
@@ -249,17 +249,14 @@ public class MainActivity extends Activity {
         form.setPadding(margen, margen / 2, margen, 0);
 
         TextView ayuda = new TextView(this);
-        ayuda.setText("Crea una cuenta gratuita en la API del Banco Central "
-                + "(si3.bcentral.cl → Web Services), actívala desde el correo y escribe "
-                + "aquí el usuario y la contraseña de la API. Solo se guardan en este teléfono."
+        ayuda.setText("Pega el API Key Token de tu cuenta del Banco Central "
+                + "(si3.bcentral.cl → Mi Cuenta → Copiar token). Solo se guarda en este teléfono."
                 + (c.titulo.isEmpty() ? "" : "\n\nSerie actual: " + c.titulo));
         ayuda.setTextColor(getColor(R.color.texto_suave));
         form.addView(ayuda);
 
-        EditText usuario = campo(form, "Usuario (correo)", c.usuario,
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        EditText clave = campo(form, "Contraseña", c.clave,
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        EditText token = campo(form, "API Key Token", c.token,
+                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
         EditText serie = campo(form, "Código de serie (vacío = " + BancoCentral.SERIE_POR_DEFECTO + ")", c.serie,
                 InputType.TYPE_CLASS_TEXT);
 
@@ -267,8 +264,8 @@ public class MainActivity extends Activity {
                 .setTitle("Cuenta del Banco Central")
                 .setView(form)
                 .setPositiveButton("Guardar", (d, w) -> {
-                    BancoCentral.guardarCuenta(this, usuario.getText().toString(),
-                            clave.getText().toString(), serie.getText().toString());
+                    BancoCentral.guardarCuenta(this, token.getText().toString(),
+                            serie.getText().toString());
                     errorTasa = "";
                     actualizar();
                 })

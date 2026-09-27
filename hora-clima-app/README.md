@@ -26,8 +26,9 @@ App para Android que muestra:
     1 + IPC = (UF(hoy) / UF(día 9))^(días del período / días transcurridos).
   - **Tasa hipotecaria**: promedio de los créditos para vivienda en UF de los
     bancos en Chile, mensual, desde la API del Banco Central. Necesita una
-    cuenta gratuita en si3.bcentral.cl (*Web Services*); usuario y contraseña
-    se escriben tocando la fila de la tasa y se guardan solo en el teléfono.
+    cuenta gratuita en si3.bcentral.cl con acceso a la API: el *API Key Token*
+    (Mi Cuenta → Copiar token) se pega tocando la fila de la tasa y se guarda
+    solo en el teléfono. La API ya no acepta usuario y contraseña.
     Por defecto usa la serie `F022.VIV.TIP.MA03.UF.Z.M` (tasa promedio de
     colocaciones para vivienda a más de 3 años, en UF, mensual); en ese mismo
     diálogo se puede escribir otro código de serie.

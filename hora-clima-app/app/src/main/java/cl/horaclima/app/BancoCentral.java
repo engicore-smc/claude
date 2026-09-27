@@ -15,8 +15,9 @@ import java.util.Locale;
 
 /**
  * Tasa promedio de los créditos hipotecarios del sistema bancario, desde la
- * API del Banco Central (BDE). Pide usuario y contraseña gratuitos, que se
- * escriben en la app y quedan solo en el teléfono.
+ * API del Banco Central (BDE). Se autentica con el "API Key Token" de la
+ * cuenta (Mi Cuenta → Apikey Token), que se pega en la app y queda solo en el
+ * teléfono. El sistema antiguo de usuario y contraseña ya no se acepta.
  */
 final class BancoCentral {
 
@@ -36,14 +37,13 @@ final class BancoCentral {
     }
 
     static final class Cuenta {
-        String usuario = "";
-        String clave = "";
+        String token = "";
         /** Código de la serie; vacío = {@link #SERIE_POR_DEFECTO}. */
         String serie = "";
         String titulo = "";
 
         boolean configurada() {
-            return !usuario.isEmpty() && !clave.isEmpty();
+            return !token.isEmpty();
         }
     }
 
@@ -52,18 +52,18 @@ final class BancoCentral {
     static Cuenta cuenta(Context context) {
         SharedPreferences p = prefs(context);
         Cuenta c = new Cuenta();
-        c.usuario = p.getString("usuario", "");
-        c.clave = p.getString("clave", "");
+        c.token = p.getString("token", "");
         c.serie = p.getString("serie", "");
         c.titulo = p.getString("titulo", "");
         return c;
     }
 
-    static void guardarCuenta(Context context, String usuario, String clave, String serie) {
+    static void guardarCuenta(Context context, String token, String serie) {
         Cuenta anterior = cuenta(context);
         SharedPreferences.Editor e = prefs(context).edit()
-                .putString("usuario", usuario.trim())
-                .putString("clave", clave)
+                .putString("token", token.trim())
+                .remove("usuario")      // del sistema antiguo
+                .remove("clave")
                 .putString("serie", serie.trim());
         if (!serie.trim().equals(anterior.serie)) {
             e.putString("titulo", "");
@@ -118,11 +118,10 @@ final class BancoCentral {
 
     private static JSONObject consultar(Cuenta c, String funcion, String extra, int timeoutMs)
             throws IOException, JSONException {
-        String url = API + "?user=" + codificar(c.usuario) + "&pass=" + codificar(c.clave)
-                + "&function=" + funcion + extra;
+        String url = API + "?token=" + codificar(c.token) + "&function=" + funcion + extra;
         JSONObject cuerpo = new JSONObject(Red.leer(url, timeoutMs));
         if (cuerpo.optInt("Codigo", -1) != 0) {
-            // Por ejemplo, usuario o contraseña incorrectos.
+            // Por ejemplo, token inválido o vencido.
             throw new IOException("Banco Central: " + cuerpo.optString("Descripcion", "error"));
         }
         return cuerpo;
