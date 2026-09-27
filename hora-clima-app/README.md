@@ -15,9 +15,9 @@ App para Android que muestra:
   - **UF** del día.
   - **Dólar observado** y **euro** en pesos. Si mindicador.cl no responde,
     se usan los de [open.er-api.com](https://open.er-api.com).
-  - **Indicador IPC** = (IPC ago 2026 − IPC último publicado) / IPC ago 2026.
+  - **Indicador IPC** = (IPC jul 2026 − IPC último publicado) / IPC jul 2026.
     El INE publica variaciones mensuales, así que el cociente se obtiene
-    encadenándolas: IPC último / IPC ago = Π(1 + variación de cada mes
+    encadenándolas: IPC último / IPC jul = Π(1 + variación de cada mes
     posterior). Es negativo cuando hubo inflación. El IPC de cada mes sale
     hacia el día 8 del mes siguiente.
   - **Tasa hipotecaria**: promedio de los créditos para vivienda en UF de los

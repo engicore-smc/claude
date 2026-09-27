@@ -15,7 +15,7 @@ final class Indicadores {
 
     /** Mes base del indicador de IPC. */
     static final int IPC_BASE_ANIO = 2026;
-    static final int IPC_BASE_MES = 8;
+    static final int IPC_BASE_MES = 7;
 
     static final class Monedas {
         double uf = Double.NaN;
