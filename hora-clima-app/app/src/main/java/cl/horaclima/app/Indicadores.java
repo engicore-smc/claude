@@ -1,5 +1,7 @@
 package cl.horaclima.app;
 
+import android.content.Context;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -12,9 +14,8 @@ import java.time.temporal.ChronoUnit;
 /** UF, dólar y euro desde mindicador.cl (datos del Banco Central); el IPC se deduce de la UF. */
 final class Indicadores {
 
-    /** Mes base del indicador de IPC. */
-    static final int IPC_BASE_ANIO = 2026;
-    static final int IPC_BASE_MES = 7;
+    /** Mes base del reajuste por IPC si el usuario no elige otro. */
+    static final YearMonth IPC_BASE_POR_DEFECTO = YearMonth.of(2026, 7);
 
     static final class Monedas {
         double uf = Double.NaN;
@@ -27,7 +28,7 @@ final class Indicadores {
     }
 
     static final class Ipc {
-        /** (IPC base − IPC último) / IPC base, en %. Negativo si hubo inflación. */
+        /** Reajuste = IPC último / IPC base − 1, en %. Positivo si hubo inflación. */
         double indicador;
         /** Último mes publicado que entra en el cálculo, p. ej. "sep 2026". */
         String hasta;
@@ -105,7 +106,7 @@ final class Indicadores {
      * No depende de que alguien cargue la serie del IPC: basta la UF, que el
      * Banco Central publica a diario.
      */
-    static Ipc ipc(int timeoutMs) throws IOException, JSONException {
+    static Ipc ipc(YearMonth base, int timeoutMs) throws IOException, JSONException {
         JSONObject hoy = new JSONObject(Red.leer("https://mindicador.cl/api/uf", timeoutMs))
                 .getJSONArray("serie").getJSONObject(0);
         LocalDate t = LocalDate.parse(hoy.getString("fecha").substring(0, 10));
@@ -115,7 +116,6 @@ final class Indicadores {
         LocalDate s = t.getDayOfMonth() >= 10 ? t.withDayOfMonth(9) : t.minusMonths(1).withDayOfMonth(9);
         // El período que empieza el 9 del mes m aplica el IPC del mes m−1.
         YearMonth mesIpc = YearMonth.from(s).minusMonths(1);
-        YearMonth base = YearMonth.of(IPC_BASE_ANIO, IPC_BASE_MES);
         // Primer día 9 cuyo período aplica un IPC posterior al base.
         LocalDate ancla = base.plusMonths(2).atDay(9);
 
@@ -136,9 +136,20 @@ final class Indicadores {
             throw new IOException("cálculo del IPC fuera de rango: " + razon);
         }
 
-        ipc.indicador = (1 - razon) * 100;
+        ipc.indicador = (razon - 1) * 100;
         ipc.hasta = Formato.mes(mesIpc.getMonthValue(), mesIpc.getYear());
         return ipc;
+    }
+
+    /** Mes base elegido en la app. */
+    static YearMonth base(Context context) {
+        int clave = context.getSharedPreferences("ajustes", Context.MODE_PRIVATE).getInt("ipcBase", 0);
+        return clave == 0 ? IPC_BASE_POR_DEFECTO : YearMonth.of(clave / 12, clave % 12 + 1);
+    }
+
+    static void guardarBase(Context context, YearMonth base) {
+        context.getSharedPreferences("ajustes", Context.MODE_PRIVATE).edit()
+                .putInt("ipcBase", base.getYear() * 12 + base.getMonthValue() - 1).apply();
     }
 
     private static double ufDelDia(LocalDate dia, int timeoutMs) throws IOException, JSONException {

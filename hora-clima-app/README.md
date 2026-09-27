@@ -15,8 +15,10 @@ App para Android que muestra:
   - **UF** del día.
   - **Dólar observado** y **euro** en pesos. Si mindicador.cl no responde,
     se usan los de [open.er-api.com](https://open.er-api.com).
-  - **Indicador IPC** = (IPC jul 2026 − IPC último publicado) / IPC jul 2026.
-    Es negativo cuando hubo inflación. mindicador.cl no trae el IPC de 2026, así
+  - **Reajuste por IPC** = IPC último publicado / IPC del mes base − 1: cuánto
+    subió el IPC desde el mes base (por ejemplo, para saber cuánto se reajusta
+    un sueldo). El mes base se elige tocando la fila; por defecto, julio 2026.
+    mindicador.cl no trae el IPC de 2026, así
     que el cociente se deduce de la UF, que por ley sube del día 10 del mes t al
     9 del mes t+1 exactamente el IPC del mes t−1:
     UF(9 de t+1) / UF(9 de t) = 1 + IPC(t−1). Los meses completos se encadenan
@@ -37,7 +39,7 @@ sin conexión se ve lo último que se descargó.
 
 Resumen para la pantalla de inicio (4×2, redimensionable) en tres filas:
 hora y minuto de Chile y España; temperatura e icono del cielo de las tres
-ciudades; UF, dólar, euro (en pesos, sin decimales), indicador IPC y tasa
+ciudades; UF, dólar, euro (en pesos, sin decimales), reajuste por IPC y tasa
 hipotecaria.
 Para añadirlo: mantén pulsado un hueco de la pantalla de inicio → *Widgets* →
 *Hora y Clima*.

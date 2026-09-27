@@ -29,9 +29,11 @@ final class Resumen {
     String euroFecha = "";
     String monedasFuente = "";
 
-    /** Indicador de IPC en %, NaN si nunca se calculó. */
+    /** Reajuste por IPC en %, NaN si nunca se calculó. */
     double ipc = Double.NaN;
     String ipcHasta = "";
+    /** Mes base con el que se calculó, p. ej. "jul 2026". */
+    String ipcBase = "";
 
     /** Tasa hipotecaria promedio en % anual, NaN si no hay. */
     double tasa = Double.NaN;
@@ -61,7 +63,9 @@ final class Resumen {
             r.dolarFecha = o.optString("dolarFecha", "");
             r.euroFecha = o.optString("euroFecha", "");
             r.monedasFuente = o.optString("monedasFuente", "");
-            r.ipc = o.optDouble("ipc", Double.NaN);
+            // "reajuste": la clave anterior ("ipc") tenía el signo contrario.
+            r.ipc = o.optDouble("reajuste", Double.NaN);
+            r.ipcBase = o.optString("ipcBase", "");
             r.ipcHasta = o.optString("ipcHasta", "");
             r.tasa = o.optDouble("tasa", Double.NaN);
             r.tasaMes = o.optString("tasaMes", "");
@@ -86,10 +90,10 @@ final class Resumen {
             poner(o, "uf", uf);
             poner(o, "dolar", dolar);
             poner(o, "euro", euro);
-            poner(o, "ipc", ipc);
+            poner(o, "reajuste", ipc);
             poner(o, "tasa", tasa);
             o.put("ufFecha", ufFecha).put("dolarFecha", dolarFecha).put("euroFecha", euroFecha)
-                    .put("monedasFuente", monedasFuente).put("ipcHasta", ipcHasta)
+                    .put("monedasFuente", monedasFuente).put("ipcHasta", ipcHasta).put("ipcBase", ipcBase)
                     .put("tasaMes", tasaMes).put("tasaTitulo", tasaTitulo);
             prefs(context).edit().putString(CLAVE, o.toString()).apply();
         } catch (JSONException e) {

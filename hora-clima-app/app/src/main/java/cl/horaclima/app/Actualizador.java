@@ -2,6 +2,7 @@ package cl.horaclima.app;
 
 import android.content.Context;
 
+import java.time.YearMonth;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -35,7 +36,8 @@ final class Actualizador {
         ExecutorService hilos = Executors.newFixedThreadPool(4);
         Future<Clima.Lectura[]> clima = hilos.submit(() -> Clima.descargar(Ciudad.TODAS, timeoutMs));
         Future<Indicadores.Monedas> monedas = hilos.submit(() -> Indicadores.monedas(timeoutMs));
-        Future<Indicadores.Ipc> ipc = hilos.submit(() -> Indicadores.ipc(timeoutMs));
+        YearMonth base = Indicadores.base(app);
+        Future<Indicadores.Ipc> ipc = hilos.submit(() -> Indicadores.ipc(base, timeoutMs));
         Future<BancoCentral.Tasa> tasa = hilos.submit(() -> BancoCentral.hipotecaria(app, timeoutMs));
         hilos.shutdown();
 
@@ -79,6 +81,7 @@ final class Actualizador {
             if (i != null) {
                 r.ipc = i.indicador;
                 r.ipcHasta = i.hasta;
+                r.ipcBase = Formato.mes(base.getMonthValue(), base.getYear());
                 res.ipcOk = true;
             }
             if (res.tasaSinCuenta) {

@@ -13,9 +13,11 @@ import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.NumberPicker;
 import android.widget.TextView;
 
 import java.text.DateFormat;
+import java.time.YearMonth;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -84,7 +86,8 @@ public class MainActivity extends Activity {
         filaUf = fila(inflater, indicadores, "UF");
         filaDolar = fila(inflater, indicadores, "Dólar observado");
         filaEuro = fila(inflater, indicadores, "Euro");
-        filaIpc = fila(inflater, indicadores, "Indicador IPC");
+        filaIpc = fila(inflater, indicadores, "Reajuste por IPC");
+        filaIpc.setOnClickListener(v -> elegirMesBase());
         filaTasa = fila(inflater, indicadores, "Tasa hipotecaria");
         filaTasa.setOnClickListener(v -> configurarBancoCentral());
 
@@ -182,15 +185,18 @@ public class MainActivity extends Activity {
         poner(filaDolar, pesos(r.dolar, 2), unir(r.dolarFecha, r.monedasFuente));
         poner(filaEuro, pesos(r.euro, 2), r.euroFecha);
 
-        String base = Formato.mes(Indicadores.IPC_BASE_MES, Indicadores.IPC_BASE_ANIO);
-        if (Double.isNaN(r.ipc)) {
-            poner(filaIpc, "—", "(IPC " + base + " − IPC último) / IPC " + base);
+        YearMonth mesBase = Indicadores.base(this);
+        String base = Formato.mes(mesBase.getMonthValue(), mesBase.getYear());
+        String cambiar = " · toca para cambiar el mes base";
+        if (Double.isNaN(r.ipc) || !r.ipcBase.equals(base)) {
+            // Aún no se calcula con el mes base elegido.
+            poner(filaIpc, "—", "Desde IPC " + base + cambiar);
         } else if (r.ipcHasta.equals(base)) {
             poner(filaIpc, Formato.porcentajeConSigno(r.ipc, 2),
-                    "Aún no se publica un IPC posterior a " + base);
+                    "Aún no se publica un IPC posterior a " + base + cambiar);
         } else {
             poner(filaIpc, Formato.porcentajeConSigno(r.ipc, 2),
-                    "(IPC " + base + " − IPC " + r.ipcHasta + ") / IPC " + base + " · calculado con la UF");
+                    "IPC " + r.ipcHasta + " / IPC " + base + " − 1" + cambiar);
         }
 
         if (!BancoCentral.cuenta(this).configurada()) {
@@ -278,5 +284,52 @@ public class MainActivity extends Activity {
         e.setSingleLine(true);
         form.addView(e);
         return e;
+    }
+
+    /** Mes contra el que se compara el IPC (p. ej. el del último reajuste de sueldo). */
+    private void elegirMesBase() {
+        YearMonth actual = Indicadores.base(this);
+        YearMonth ultimo = YearMonth.now().minusMonths(1);
+
+        String[] nombres = {"enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+                "agosto", "septiembre", "octubre", "noviembre", "diciembre"};
+        NumberPicker mes = new NumberPicker(this);
+        mes.setMinValue(1);
+        mes.setMaxValue(12);
+        mes.setDisplayedValues(nombres);
+        mes.setValue(actual.getMonthValue());
+        NumberPicker anio = new NumberPicker(this);
+        anio.setMinValue(2015);
+        anio.setMaxValue(ultimo.getYear());
+        anio.setValue(Math.min(actual.getYear(), ultimo.getYear()));
+        mes.setWrapSelectorWheel(true);
+        anio.setWrapSelectorWheel(false);
+
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.HORIZONTAL);
+        form.setGravity(android.view.Gravity.CENTER);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        int margen = Math.round(16 * getResources().getDisplayMetrics().density);
+        lp.setMargins(margen, margen / 2, margen, 0);
+        form.addView(mes, lp);
+        form.addView(anio, lp);
+
+        new AlertDialog.Builder(this)
+                .setTitle("Comparar el IPC con…")
+                .setMessage("Elige el mes base, por ejemplo el de tu último reajuste. "
+                        + "Se muestra cuánto subió el IPC desde ese mes hasta el último publicado.")
+                .setView(form)
+                .setPositiveButton("Guardar", (d, w) -> {
+                    YearMonth elegido = YearMonth.of(anio.getValue(), mes.getValue());
+                    if (elegido.isAfter(ultimo)) {
+                        elegido = ultimo;
+                    }
+                    Indicadores.guardarBase(this, elegido);
+                    mostrar(Resumen.cargar(this));
+                    actualizar();
+                })
+                .setNegativeButton("Cancelar", null)
+                .show();
     }
 }
