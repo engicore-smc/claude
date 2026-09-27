@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'cl.horaclima.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'cl.horaclima.app'
+        minSdk 30
+        targetSdk 35
+        // El workflow pasa el número de compilación para que cada APK sea
+        // una versión mayor que la anterior y se instale encima.
+        versionCode((project.findProperty('versionCode') ?: '1').toString().toInteger())
+        versionName "1.${(project.findProperty('versionCode') ?: '1')}"
+    }
+
+    // Firma fija: cada APK nuevo se instala encima del anterior sin
+    // desinstalar. Sirve para instalar a mano, no para Play Store.
+    signingConfigs {
+        sideload {
+            storeFile file('sideload.jks')
+            storePassword 'horaclima-sideload'
+            keyAlias 'horaclima'
+            keyPassword 'horaclima-sideload'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+        debug {
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

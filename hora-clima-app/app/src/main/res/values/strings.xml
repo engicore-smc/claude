@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hora y Clima</string>
+    <string name="seccion_hora">Hora</string>
+    <string name="seccion_clima">Temperatura</string>
+    <string name="chile">🇨🇱  Chile</string>
+    <string name="espana">🇪🇸  España</string>
+    <string name="actualizar">Actualizar</string>
+    <string name="cargando">Cargando…</string>
+</resources>

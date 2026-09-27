@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Esfera de reloj con un sol asomando: hora y clima. Dibujado en la zona
+     segura (66 dp centrales) del icono adaptativo de 108 dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Sol -->
+    <path android:fillColor="#FFC857"
+        android:pathData="M70,36m-9,0a9,9 0,1 1,18 0a9,9 0,1 1,-18 0" />
+    <!-- Esfera -->
+    <path android:strokeColor="#6CB4FF" android:strokeWidth="4"
+        android:pathData="M50,58m-19,0a19,19 0,1 1,38 0a19,19 0,1 1,-38 0" />
+    <!-- Agujas -->
+    <path android:strokeColor="#ECEFF4" android:strokeWidth="4"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:pathData="M50,46V58L58,63" />
+</vector>

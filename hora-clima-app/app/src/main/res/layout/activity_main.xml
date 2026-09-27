@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/raiz"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/fondo">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="24dp">
+
+        <TextView
+            style="@style/Seccion"
+            android:text="@string/seccion_hora" />
+
+        <LinearLayout style="@style/Tarjeta">
+            <TextView
+                style="@style/Pais"
+                android:text="@string/chile" />
+            <TextClock
+                style="@style/Reloj"
+                android:timeZone="America/Santiago" />
+            <TextClock
+                style="@style/Fecha"
+                android:timeZone="America/Santiago" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/Tarjeta">
+            <TextView
+                style="@style/Pais"
+                android:text="@string/espana" />
+            <TextClock
+                style="@style/Reloj"
+                android:timeZone="Europe/Madrid" />
+            <TextClock
+                style="@style/Fecha"
+                android:timeZone="Europe/Madrid" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/diferencia"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:textColor="@color/texto_suave"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                style="@style/Seccion"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:text="@string/seccion_clima" />
+
+            <Button
+                android:id="@+id/actualizar"
+                style="?android:attr/borderlessButtonStyle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/actualizar"
+                android:textColor="@color/acento" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/ciudades"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+
+        <TextView
+            android:id="@+id/estado"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/texto_suave"
+            android:textSize="13sp" />
+    </LinearLayout>
+</ScrollView>
