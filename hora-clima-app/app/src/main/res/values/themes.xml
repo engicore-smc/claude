@@ -54,4 +54,48 @@
         <item name="android:format24Hour">EEEE d \'de\' MMMM</item>
         <item name="android:format12Hour">EEEE d \'de\' MMMM</item>
     </style>
+
+    <!-- Widget -->
+    <style name="WPais">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/texto_suave</item>
+        <item name="android:textSize">12sp</item>
+    </style>
+
+    <style name="WReloj">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/texto</item>
+        <item name="android:textSize">32sp</item>
+        <item name="android:fontFamily">sans-serif-light</item>
+        <item name="android:format24Hour">HH:mm</item>
+        <item name="android:format12Hour">HH:mm</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+
+    <style name="WColumna">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <style name="WNombre">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/texto_suave</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+
+    <style name="WTemp">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/texto</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:text">—</item>
+    </style>
 </resources>

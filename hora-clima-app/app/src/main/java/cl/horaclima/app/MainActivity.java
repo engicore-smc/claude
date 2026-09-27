@@ -20,15 +20,12 @@ import java.util.concurrent.Executors;
 
 /**
  * Pantalla única: la hora en Chile y España (la dan los TextClock del layout,
- * con la zona horaria del teléfono) y la temperatura de tres ciudades.
+ * con la zona horaria del teléfono), la temperatura de tres ciudades y el
+ * precio del euro en pesos chilenos.
  */
 public class MainActivity extends Activity {
 
-    private static final Ciudad[] CIUDADES = {
-            new Ciudad("Chillán", "Ñuble, Chile", -36.6061, -72.1039),
-            new Ciudad("San Nicolás", "Ñuble, Chile", -36.5000, -72.2167),
-            new Ciudad("Galapagar", "Madrid, España", 40.5786, -4.0039),
-    };
+    private static final Ciudad[] CIUDADES = Ciudad.TODAS;
 
     private static final String ZONA_CHILE = "America/Santiago";
     private static final String ZONA_ESPANA = "Europe/Madrid";
@@ -43,6 +40,8 @@ public class MainActivity extends Activity {
 
     private TextView estado;
     private TextView diferencia;
+    private TextView euroValor;
+    private TextView euroDetalle;
     private boolean cargando;
 
     @Override
@@ -60,6 +59,8 @@ public class MainActivity extends Activity {
 
         estado = findViewById(R.id.estado);
         diferencia = findViewById(R.id.diferencia);
+        euroValor = findViewById(R.id.euro_valor);
+        euroDetalle = findViewById(R.id.euro_detalle);
 
         ViewGroup contenedor = findViewById(R.id.ciudades);
         LayoutInflater inflater = getLayoutInflater();
@@ -72,6 +73,9 @@ public class MainActivity extends Activity {
         }
 
         findViewById(R.id.actualizar).setOnClickListener(v -> actualizar());
+
+        // Lo último guardado, mientras llegan los datos nuevos.
+        mostrar(Resumen.cargar(this));
     }
 
     @Override
@@ -118,48 +122,52 @@ public class MainActivity extends Activity {
         estado.setTextColor(getColor(R.color.texto_suave));
         estado.setText(R.string.cargando);
         red.execute(() -> {
-            try {
-                Clima.Lectura[] lecturas = Clima.descargar(CIUDADES);
-                principal.post(() -> mostrar(lecturas));
-            } catch (Exception e) {
-                principal.post(() -> mostrarError(e));
-            }
+            Actualizador.Resultado resultado = Actualizador.actualizar(this, 15_000);
+            Resumen resumen = Resumen.cargar(this);
+            principal.post(() -> terminar(resultado, resumen));
         });
     }
 
-    private void mostrar(Clima.Lectura[] lecturas) {
+    private void terminar(Actualizador.Resultado resultado, Resumen resumen) {
         cargando = false;
         if (isDestroyed()) {
             return;
         }
-        for (int i = 0; i < tarjetas.length; i++) {
-            Clima.Lectura l = lecturas[i];
-            View t = tarjetas[i];
-            ((TextView) t.findViewById(R.id.temperatura)).setText(grados(l.temperatura));
-            ((TextView) t.findViewById(R.id.cielo)).setText(Clima.describir(l.codigo, l.esDeDia));
-            ((TextView) t.findViewById(R.id.detalle)).setText(
-                    "Sensación " + grados(l.sensacion)
-                            + "  ·  Máx " + grados(l.maxima)
-                            + "  ·  Mín " + grados(l.minima));
+        mostrar(resumen);
+        if (resultado.climaOk && resultado.euroOk) {
+            return;
+        }
+        // Lo que falló se avisa debajo; a la vista quedan los últimos datos.
+        String que = !resultado.climaOk && !resultado.euroOk ? "la temperatura ni el euro"
+                : !resultado.climaOk ? "la temperatura" : "el euro";
+        estado.setTextColor(getColor(R.color.error));
+        estado.setText("No se pudo actualizar " + que + ". Revisa la conexión y pulsa Actualizar.");
+    }
+
+    private void mostrar(Resumen r) {
+        if (r.lecturas != null) {
+            for (int i = 0; i < tarjetas.length; i++) {
+                Clima.Lectura l = r.lecturas[i];
+                View t = tarjetas[i];
+                ((TextView) t.findViewById(R.id.temperatura)).setText(Clima.grados(l.temperatura));
+                ((TextView) t.findViewById(R.id.cielo)).setText(Clima.describir(l.codigo, l.esDeDia));
+                ((TextView) t.findViewById(R.id.detalle)).setText(
+                        "Sensación " + Clima.grados(l.sensacion)
+                                + "  ·  Máx " + Clima.grados(l.maxima)
+                                + "  ·  Mín " + Clima.grados(l.minima));
+            }
+        }
+        if (!Double.isNaN(r.euro)) {
+            euroValor.setText("$" + WidgetResumen.pesos(r.euro, 2));
+            euroDetalle.setText("Pesos chilenos por 1 €  ·  " + r.euroFuente
+                    + (r.euroFecha.isEmpty() ? "" : ", " + r.euroFecha));
         }
         estado.setTextColor(getColor(R.color.texto_suave));
-        String hora = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date());
-        estado.setText("Actualizado a las " + hora + "  ·  Datos: Open-Meteo");
-    }
-
-    /** Si falla, se dejan a la vista los últimos datos y se avisa debajo. */
-    private void mostrarError(Exception e) {
-        cargando = false;
-        if (isDestroyed()) {
-            return;
+        if (r.climaHora > 0) {
+            String hora = DateFormat.getTimeInstance(DateFormat.SHORT).format(new Date(r.climaHora));
+            estado.setText("Actualizado a las " + hora + "  ·  Clima: Open-Meteo");
+        } else {
+            estado.setText("");
         }
-        estado.setTextColor(getColor(R.color.error));
-        estado.setText("No se pudo actualizar la temperatura. Revisa la conexión y pulsa Actualizar.");
-    }
-
-    private static String grados(double valor) {
-        long redondeado = Math.round(valor);
-        // Evita mostrar "-0°".
-        return (redondeado == 0 ? 0 : redondeado) + "°";
     }
 }

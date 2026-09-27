@@ -3,12 +3,7 @@ package cl.horaclima.app;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 /** Temperatura actual desde Open-Meteo (gratis, sin clave). */
@@ -22,12 +17,30 @@ final class Clima {
         double minima;
         int codigo;
         boolean esDeDia;
+
+        JSONObject aJson() throws org.json.JSONException {
+            return new JSONObject()
+                    .put("t", temperatura).put("s", sensacion)
+                    .put("max", maxima).put("min", minima)
+                    .put("c", codigo).put("dia", esDeDia);
+        }
+
+        static Lectura deJson(JSONObject o) throws org.json.JSONException {
+            Lectura l = new Lectura();
+            l.temperatura = o.getDouble("t");
+            l.sensacion = o.getDouble("s");
+            l.maxima = o.getDouble("max");
+            l.minima = o.getDouble("min");
+            l.codigo = o.getInt("c");
+            l.esDeDia = o.getBoolean("dia");
+            return l;
+        }
     }
 
     private Clima() {}
 
     /** Pide todas las ciudades en una sola consulta. Se llama fuera del hilo principal. */
-    static Lectura[] descargar(Ciudad[] ciudades) throws IOException, org.json.JSONException {
+    static Lectura[] descargar(Ciudad[] ciudades, int timeoutMs) throws IOException, org.json.JSONException {
         StringBuilder lat = new StringBuilder();
         StringBuilder lon = new StringBuilder();
         for (int i = 0; i < ciudades.length; i++) {
@@ -45,7 +58,7 @@ final class Clima {
                 + "&daily=temperature_2m_max,temperature_2m_min"
                 + "&timezone=auto&forecast_days=1";
 
-        String cuerpo = leer(url);
+        String cuerpo = Red.leer(url, timeoutMs);
         // Con varias ciudades la respuesta es una lista; con una sola, un objeto.
         JSONArray lista = cuerpo.trim().startsWith("[")
                 ? new JSONArray(cuerpo)
@@ -68,27 +81,17 @@ final class Clima {
         return lecturas;
     }
 
-    private static String leer(String direccion) throws IOException {
-        HttpURLConnection conexion = (HttpURLConnection) new URL(direccion).openConnection();
-        conexion.setConnectTimeout(15_000);
-        conexion.setReadTimeout(15_000);
-        try {
-            int codigo = conexion.getResponseCode();
-            if (codigo != HttpURLConnection.HTTP_OK) {
-                throw new IOException("el servidor respondió " + codigo);
-            }
-            try (InputStream entrada = conexion.getInputStream()) {
-                ByteArrayOutputStream salida = new ByteArrayOutputStream();
-                byte[] buffer = new byte[8192];
-                int n;
-                while ((n = entrada.read(buffer)) != -1) {
-                    salida.write(buffer, 0, n);
-                }
-                return salida.toString(StandardCharsets.UTF_8.name());
-            }
-        } finally {
-            conexion.disconnect();
-        }
+    /** Solo el icono, para el widget. */
+    static String icono(int codigo, boolean esDeDia) {
+        String texto = describir(codigo, esDeDia);
+        int espacio = texto.indexOf(' ');
+        return espacio > 0 ? texto.substring(0, espacio) : "";
+    }
+
+    /** Formato común de temperatura: redondeada y sin "-0°". */
+    static String grados(double valor) {
+        long redondeado = Math.round(valor);
+        return (redondeado == 0 ? 0 : redondeado) + "°";
     }
 
     /** Texto e icono del código de tiempo WMO que usa Open-Meteo. */

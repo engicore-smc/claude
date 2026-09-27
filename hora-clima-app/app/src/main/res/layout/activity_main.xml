@@ -78,6 +78,29 @@
             android:orientation="vertical" />
 
         <TextView
+            style="@style/Seccion"
+            android:text="@string/seccion_euro" />
+
+        <LinearLayout style="@style/Tarjeta">
+            <TextView
+                android:id="@+id/euro_valor"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-light"
+                android:fontFeatureSettings="tnum"
+                android:text="—"
+                android:textColor="@color/texto"
+                android:textSize="36sp" />
+            <TextView
+                android:id="@+id/euro_detalle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/euro_detalle"
+                android:textColor="@color/texto_suave"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <TextView
             android:id="@+id/estado"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
